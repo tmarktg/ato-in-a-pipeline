@@ -11,3 +11,8 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
+
+# Long lines here are literal Markdown/OSCAL content templates, not code —
+# wrapping them would just reformat the generated docs for no reason.
+[tool.ruff.lint.per-file-ignores]
+"scripts/generate_compliance.py" = ["E501"]

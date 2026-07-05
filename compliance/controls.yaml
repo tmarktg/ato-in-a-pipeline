@@ -1,0 +1,198 @@
+# Single source of truth for NIST 800-53 rev5 control mappings.
+#
+# Do not hand-edit docs/compliance-matrix.md or
+# compliance/oscal/component-definition.json — both are generated from this
+# file by scripts/generate_compliance.py and checked for drift in CI. Add or
+# edit a control here, then run `make compliance-gen`.
+#
+# Every `evidence[].path` is repo-root-relative and must point at a file (or
+# directory) that actually exists — the generator fails loudly if it doesn't,
+# so this table can never grow an aspirational row.
+
+- control_id: CM-2
+  control_name: Baseline Configuration
+  implementation: >-
+    The LocalStack infra baseline (VPC, subnet, internet gateway, route
+    table, security group, S3 bucket, DynamoDB lock table) is codified in
+    Terraform, not manually configured.
+  evidence:
+    - path: terraform/main.tf
+      label: "`terraform/main.tf`"
+
+- control_id: CM-3
+  control_name: Configuration Change Control
+  implementation: >-
+    Every infra change runs `terraform fmt`/`validate`/`plan` in CI before
+    it can merge; plan output is posted as a reviewable artifact.
+  evidence:
+    - path: .github/workflows/pipeline.yml#L88-L102
+      label: "`.github/workflows/pipeline.yml#L88-L102`"
+    - path: docs/adr/0004-terraform-localstack-scope.md
+      label: "ADR 0004"
+
+- control_id: CM-6
+  control_name: Configuration Settings
+  implementation: >-
+    The UBI9 base image is remediated against the RHEL9 DISA STIG profile
+    (umask policy, root shell-init file permissions, tmpfiles override).
+  evidence:
+    - path: Dockerfile#L28-L42
+      label: "`Dockerfile#L28-L42`"
+    - path: docs/evidence/phase2-openscap-stig-before.html
+      label: "before OpenSCAP report"
+    - path: docs/evidence/phase2-openscap-stig-after.html
+      label: "after OpenSCAP report"
+    - path: docs/adr/0003-base-image.md
+      label: "ADR 0003"
+
+- control_id: CM-7
+  control_name: Least Functionality
+  implementation: >-
+    Kyverno denies admission to images from unapproved registries and any
+    `:latest`-tagged image.
+  evidence:
+    - path: policy/restrict-registry.yaml
+      label: "`policy/restrict-registry.yaml`"
+    - path: policy/disallow-latest-tag.yaml
+      label: "`policy/disallow-latest-tag.yaml`"
+    - path: docs/evidence/phase4-admission-denied-other-policies.txt
+      label: "`phase4-admission-denied-other-policies.txt`"
+
+- control_id: CM-8
+  control_name: System Component Inventory
+  implementation: >-
+    Syft generates an SPDX and a CycloneDX SBOM for every built image,
+    retained 30 days.
+  evidence:
+    - path: .github/workflows/pipeline.yml#L162-L182
+      label: "`.github/workflows/pipeline.yml#L162-L182`"
+
+- control_id: AC-6
+  control_name: Least Privilege
+  implementation: >-
+    Container runs as non-root (UID 1001) with a read-only root filesystem
+    and all Linux capabilities dropped; re-enforced at admission.
+  evidence:
+    - path: Dockerfile#L54
+      label: "`Dockerfile#L54`"
+    - path: k8s/base/deployment.yaml#L36-L39
+      label: "`k8s/base/deployment.yaml#L36-L39`"
+    - path: policy/require-non-root.yaml
+      label: "`policy/require-non-root.yaml`"
+    - path: docs/evidence/phase4-admission-denied-other-policies.txt
+      label: "`phase4-admission-denied-other-policies.txt`"
+
+- control_id: SI-2
+  control_name: Flaw Remediation
+  implementation: >-
+    Trivy HIGH findings produce a non-blocking triage report; unfixed
+    CRITICALs with no vendor patch are tracked rather than perpetually
+    blocking the pipeline.
+  evidence:
+    - path: .github/workflows/pipeline.yml#L143-L156
+      label: "`.github/workflows/pipeline.yml#L143-L156`"
+    - path: docs/adr/0002-trivy-unfixed-cve-policy.md
+      label: "ADR 0002"
+
+- control_id: SI-7
+  control_name: Software, Firmware, and Information Integrity
+  implementation: >-
+    Cosign signs every image digest in CI; Kyverno verifies that signature
+    against the same public key before the pod is admitted.
+  evidence:
+    - path: .github/workflows/pipeline.yml#L196-L203
+      label: "`.github/workflows/pipeline.yml#L196-L203`"
+    - path: policy/require-signed-images.yaml
+      label: "`policy/require-signed-images.yaml`"
+    - path: docs/evidence/phase4-admission-denied-unsigned-image.txt
+      label: "`phase4-admission-denied-unsigned-image.txt`"
+    - path: docs/adr/0001-cosign-key-management.md
+      label: "ADR 0001"
+
+- control_id: RA-5
+  control_name: Vulnerability Monitoring and Scanning
+  implementation: >-
+    Trivy scans every built image and fails the pipeline on any CRITICAL
+    finding.
+  evidence:
+    - path: .github/workflows/pipeline.yml#L136-L142
+      label: "`.github/workflows/pipeline.yml#L136-L142`"
+    - path: docs/evidence/phase1-scan-gate-blocks-vulnerable-dependency.txt
+      label: "`phase1-scan-gate-blocks-vulnerable-dependency.txt`"
+
+- control_id: SA-11
+  control_name: Developer Testing and Evaluation
+  implementation: >-
+    pytest gates merges at ≥80% coverage; Semgrep SAST fails the pipeline
+    on ERROR-severity findings.
+  evidence:
+    - path: pyproject.toml#L1-L2
+      label: "`pyproject.toml#L1-L2`"
+    - path: app/tests
+      label: "`app/tests/`"
+    - path: .semgrep.yml
+      label: "`.semgrep.yml`"
+    - path: .github/workflows/pipeline.yml#L20-L46
+      label: "`.github/workflows/pipeline.yml#L20-L46`"
+
+- control_id: IA-5
+  control_name: Authenticator Management
+  implementation: >-
+    Gitleaks fails the pipeline on any secret detected in source; the
+    Cosign private key is never committed and lives only as a CI secret,
+    with rotation documented.
+  evidence:
+    - path: .gitleaks.toml
+      label: "`.gitleaks.toml`"
+    - path: .github/workflows/pipeline.yml#L59-L69
+      label: "`.github/workflows/pipeline.yml#L59-L69`"
+    - path: docs/evidence/phase1-secrets-gate-blocks-committed-credential.txt
+      label: "`phase1-secrets-gate-blocks-committed-credential.txt`"
+    - path: docs/adr/0001-cosign-key-management.md
+      label: "ADR 0001"
+
+- control_id: AU-2
+  control_name: Event Logging
+  implementation: >-
+    The app emits structured JSON logs (timestamp, level, logger, message)
+    to stdout for every request.
+  evidence:
+    - path: app/main.py#L22-L30
+      label: "`app/main.py#L22-L30`"
+
+- control_id: AU-11
+  control_name: Audit Record Retention
+  implementation: >-
+    Every gate's report (Semgrep, Gitleaks, Trivy, SBOM, Terraform plan,
+    drift-check plan) is retained as a CI artifact for 30 days
+    (`retention-days: 30` / `expire_in: 30 days`).
+  evidence:
+    - path: .github/workflows/pipeline.yml
+      label: "`pipeline.yml`"
+    - path: .gitlab-ci.yml
+      label: "`.gitlab-ci.yml`"
+    - path: .github/workflows/drift-check.yml
+      label: "`drift-check.yml`"
+
+- control_id: CA-7
+  control_name: Continuous Monitoring
+  implementation: >-
+    A scheduled job runs `terraform plan -detailed-exitcode` against
+    LocalStack daily (non-zero exit on drift); the deeper
+    classify/remediate story is linked, not vendored.
+  evidence:
+    - path: .github/workflows/drift-check.yml
+      label: "`.github/workflows/drift-check.yml`"
+    - path: docs/continuous-monitoring.md
+      label: "`continuous-monitoring.md`"
+    - path: docs/evidence/phase5-drift-detected.txt
+      label: "`phase5-drift-detected.txt`"
+
+- control_id: SC-7
+  control_name: Boundary Protection
+  implementation: >-
+    Terraform provisions a dedicated VPC, public subnet, internet gateway,
+    route table, and a security group scoping ingress to the app port only.
+  evidence:
+    - path: terraform/main.tf#L3-L72
+      label: "`terraform/main.tf#L3-L72`"

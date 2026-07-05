@@ -3,6 +3,7 @@ stages:
   - test
   - sast
   - secrets
+  - compliance
   - terraform
   - build
   - scan
@@ -96,6 +97,22 @@ secrets:
     paths:
       - gitleaks-report.json
     expire_in: 30 days
+
+compliance:
+  stage: compliance
+  except:
+    - schedules
+  image: python:3.12-slim-bookworm
+  extends: .pip_cache
+  variables:
+    PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git
+    - pip install -r requirements-dev.txt
+  script:
+    - python scripts/generate_compliance.py
+    - git diff --exit-code docs/compliance-matrix.md compliance/oscal/component-definition.json
+    - python scripts/validate_oscal.py
 
 terraform-fmt:
   stage: terraform

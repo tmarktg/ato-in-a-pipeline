@@ -6,7 +6,7 @@ PYTHON ?= $(VENV)/bin/python
 KIND_CLUSTER ?= ato-demo
 
 .PHONY: venv run test lint image scan clean localstack-up localstack-down tf-plan tf-apply tf-destroy \
-	kind-up kind-down policy-test deploy-dev demo drift-check
+	kind-up kind-down policy-test deploy-dev demo drift-check compliance-gen compliance-check
 
 venv:
 	python3.12 -m venv $(VENV)
@@ -49,6 +49,15 @@ tf-apply:
 
 tf-destroy:
 	cd terraform && terraform destroy
+
+# Phase 7 — compliance/controls.yaml is the source of truth; both outputs
+# below are generated from it and must never be hand-edited directly.
+compliance-gen:
+	$(PYTHON) scripts/generate_compliance.py
+
+compliance-check: compliance-gen
+	git diff --exit-code docs/compliance-matrix.md compliance/oscal/component-definition.json
+	$(PYTHON) scripts/validate_oscal.py
 
 # Phase 5 — CA-7 continuous monitoring. Same check the scheduled CI job
 # runs: exit 0 = clean, exit 2 = drift (see docs/continuous-monitoring.md).

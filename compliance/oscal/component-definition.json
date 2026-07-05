@@ -1,0 +1,328 @@
+{
+  "component-definition": {
+    "uuid": "61d3982a-a79c-5856-83d2-fc528de376d5",
+    "metadata": {
+      "title": "ato-in-a-pipeline Component Definition",
+      "last-modified": "2025-01-01T00:00:00+00:00",
+      "version": "1.0.0",
+      "oscal-version": "1.2.1"
+    },
+    "components": [
+      {
+        "uuid": "6d5156c7-e115-516e-96aa-04781da7f628",
+        "type": "process-procedure",
+        "title": "ato-in-a-pipeline CI/CD pipeline",
+        "description": "The secure software delivery pipeline (SAST, secrets scanning, vulnerability scanning, SBOM, signing, Kyverno admission policy, and drift detection) defined in this repository.",
+        "control-implementations": [
+          {
+            "uuid": "a6b67aff-b0ec-53f3-9b34-fa4a4b5e4223",
+            "source": "https://csrc.nist.gov/extensions/nvd/nist-sp-800-53r5-resolved-profile-catalog.json",
+            "description": "NIST 800-53 rev5 controls implemented by the ato-in-a-pipeline CI/CD pipeline",
+            "implemented-requirements": [
+              {
+                "uuid": "aad8df66-2379-52c8-9456-f6031d553d5f",
+                "control-id": "cm-2",
+                "description": "The LocalStack infra baseline (VPC, subnet, internet gateway, route table, security group, S3 bucket, DynamoDB lock table) is codified in Terraform, not manually configured.",
+                "links": [
+                  {
+                    "href": "terraform/main.tf",
+                    "rel": "evidence",
+                    "text": "terraform/main.tf"
+                  }
+                ]
+              },
+              {
+                "uuid": "9267e054-1dd5-526f-b8a4-514ba60169af",
+                "control-id": "cm-3",
+                "description": "Every infra change runs `terraform fmt`/`validate`/`plan` in CI before it can merge; plan output is posted as a reviewable artifact.",
+                "links": [
+                  {
+                    "href": ".github/workflows/pipeline.yml#L88-L102",
+                    "rel": "evidence",
+                    "text": ".github/workflows/pipeline.yml#L88-L102"
+                  },
+                  {
+                    "href": "docs/adr/0004-terraform-localstack-scope.md",
+                    "rel": "evidence",
+                    "text": "ADR 0004"
+                  }
+                ]
+              },
+              {
+                "uuid": "668dc17f-6bae-575f-97ea-7fc39ba216d9",
+                "control-id": "cm-6",
+                "description": "The UBI9 base image is remediated against the RHEL9 DISA STIG profile (umask policy, root shell-init file permissions, tmpfiles override).",
+                "links": [
+                  {
+                    "href": "Dockerfile#L28-L42",
+                    "rel": "evidence",
+                    "text": "Dockerfile#L28-L42"
+                  },
+                  {
+                    "href": "docs/evidence/phase2-openscap-stig-before.html",
+                    "rel": "evidence",
+                    "text": "before OpenSCAP report"
+                  },
+                  {
+                    "href": "docs/evidence/phase2-openscap-stig-after.html",
+                    "rel": "evidence",
+                    "text": "after OpenSCAP report"
+                  },
+                  {
+                    "href": "docs/adr/0003-base-image.md",
+                    "rel": "evidence",
+                    "text": "ADR 0003"
+                  }
+                ]
+              },
+              {
+                "uuid": "4c90f132-02e2-5d1d-8f83-27048777b3b2",
+                "control-id": "cm-7",
+                "description": "Kyverno denies admission to images from unapproved registries and any `:latest`-tagged image.",
+                "links": [
+                  {
+                    "href": "policy/restrict-registry.yaml",
+                    "rel": "evidence",
+                    "text": "policy/restrict-registry.yaml"
+                  },
+                  {
+                    "href": "policy/disallow-latest-tag.yaml",
+                    "rel": "evidence",
+                    "text": "policy/disallow-latest-tag.yaml"
+                  },
+                  {
+                    "href": "docs/evidence/phase4-admission-denied-other-policies.txt",
+                    "rel": "evidence",
+                    "text": "phase4-admission-denied-other-policies.txt"
+                  }
+                ]
+              },
+              {
+                "uuid": "fcb686e9-a239-55c1-8a53-64792446005b",
+                "control-id": "cm-8",
+                "description": "Syft generates an SPDX and a CycloneDX SBOM for every built image, retained 30 days.",
+                "links": [
+                  {
+                    "href": ".github/workflows/pipeline.yml#L162-L182",
+                    "rel": "evidence",
+                    "text": ".github/workflows/pipeline.yml#L162-L182"
+                  }
+                ]
+              },
+              {
+                "uuid": "bf3e01cc-58f5-582f-a179-dc6005ca17b7",
+                "control-id": "ac-6",
+                "description": "Container runs as non-root (UID 1001) with a read-only root filesystem and all Linux capabilities dropped; re-enforced at admission.",
+                "links": [
+                  {
+                    "href": "Dockerfile#L54",
+                    "rel": "evidence",
+                    "text": "Dockerfile#L54"
+                  },
+                  {
+                    "href": "k8s/base/deployment.yaml#L36-L39",
+                    "rel": "evidence",
+                    "text": "k8s/base/deployment.yaml#L36-L39"
+                  },
+                  {
+                    "href": "policy/require-non-root.yaml",
+                    "rel": "evidence",
+                    "text": "policy/require-non-root.yaml"
+                  },
+                  {
+                    "href": "docs/evidence/phase4-admission-denied-other-policies.txt",
+                    "rel": "evidence",
+                    "text": "phase4-admission-denied-other-policies.txt"
+                  }
+                ]
+              },
+              {
+                "uuid": "14e9c1e7-c281-5e48-984d-bdc4998779de",
+                "control-id": "si-2",
+                "description": "Trivy HIGH findings produce a non-blocking triage report; unfixed CRITICALs with no vendor patch are tracked rather than perpetually blocking the pipeline.",
+                "links": [
+                  {
+                    "href": ".github/workflows/pipeline.yml#L143-L156",
+                    "rel": "evidence",
+                    "text": ".github/workflows/pipeline.yml#L143-L156"
+                  },
+                  {
+                    "href": "docs/adr/0002-trivy-unfixed-cve-policy.md",
+                    "rel": "evidence",
+                    "text": "ADR 0002"
+                  }
+                ]
+              },
+              {
+                "uuid": "7ed06de0-1c60-51c2-88e4-3b374cf14fc5",
+                "control-id": "si-7",
+                "description": "Cosign signs every image digest in CI; Kyverno verifies that signature against the same public key before the pod is admitted.",
+                "links": [
+                  {
+                    "href": ".github/workflows/pipeline.yml#L196-L203",
+                    "rel": "evidence",
+                    "text": ".github/workflows/pipeline.yml#L196-L203"
+                  },
+                  {
+                    "href": "policy/require-signed-images.yaml",
+                    "rel": "evidence",
+                    "text": "policy/require-signed-images.yaml"
+                  },
+                  {
+                    "href": "docs/evidence/phase4-admission-denied-unsigned-image.txt",
+                    "rel": "evidence",
+                    "text": "phase4-admission-denied-unsigned-image.txt"
+                  },
+                  {
+                    "href": "docs/adr/0001-cosign-key-management.md",
+                    "rel": "evidence",
+                    "text": "ADR 0001"
+                  }
+                ]
+              },
+              {
+                "uuid": "3837f3b6-6854-50a3-b141-47f911265734",
+                "control-id": "ra-5",
+                "description": "Trivy scans every built image and fails the pipeline on any CRITICAL finding.",
+                "links": [
+                  {
+                    "href": ".github/workflows/pipeline.yml#L136-L142",
+                    "rel": "evidence",
+                    "text": ".github/workflows/pipeline.yml#L136-L142"
+                  },
+                  {
+                    "href": "docs/evidence/phase1-scan-gate-blocks-vulnerable-dependency.txt",
+                    "rel": "evidence",
+                    "text": "phase1-scan-gate-blocks-vulnerable-dependency.txt"
+                  }
+                ]
+              },
+              {
+                "uuid": "6b308b68-1ee5-513b-8623-aaf75c0d3726",
+                "control-id": "sa-11",
+                "description": "pytest gates merges at ≥80% coverage; Semgrep SAST fails the pipeline on ERROR-severity findings.",
+                "links": [
+                  {
+                    "href": "pyproject.toml#L1-L2",
+                    "rel": "evidence",
+                    "text": "pyproject.toml#L1-L2"
+                  },
+                  {
+                    "href": "app/tests",
+                    "rel": "evidence",
+                    "text": "app/tests/"
+                  },
+                  {
+                    "href": ".semgrep.yml",
+                    "rel": "evidence",
+                    "text": ".semgrep.yml"
+                  },
+                  {
+                    "href": ".github/workflows/pipeline.yml#L20-L46",
+                    "rel": "evidence",
+                    "text": ".github/workflows/pipeline.yml#L20-L46"
+                  }
+                ]
+              },
+              {
+                "uuid": "5803096c-e714-5eb6-bd4b-10d614a90b82",
+                "control-id": "ia-5",
+                "description": "Gitleaks fails the pipeline on any secret detected in source; the Cosign private key is never committed and lives only as a CI secret, with rotation documented.",
+                "links": [
+                  {
+                    "href": ".gitleaks.toml",
+                    "rel": "evidence",
+                    "text": ".gitleaks.toml"
+                  },
+                  {
+                    "href": ".github/workflows/pipeline.yml#L59-L69",
+                    "rel": "evidence",
+                    "text": ".github/workflows/pipeline.yml#L59-L69"
+                  },
+                  {
+                    "href": "docs/evidence/phase1-secrets-gate-blocks-committed-credential.txt",
+                    "rel": "evidence",
+                    "text": "phase1-secrets-gate-blocks-committed-credential.txt"
+                  },
+                  {
+                    "href": "docs/adr/0001-cosign-key-management.md",
+                    "rel": "evidence",
+                    "text": "ADR 0001"
+                  }
+                ]
+              },
+              {
+                "uuid": "e8be8d21-5734-50f4-ba49-4addd7cd6978",
+                "control-id": "au-2",
+                "description": "The app emits structured JSON logs (timestamp, level, logger, message) to stdout for every request.",
+                "links": [
+                  {
+                    "href": "app/main.py#L22-L30",
+                    "rel": "evidence",
+                    "text": "app/main.py#L22-L30"
+                  }
+                ]
+              },
+              {
+                "uuid": "17acc0b9-dd13-5c05-893a-0690e57dfedf",
+                "control-id": "au-11",
+                "description": "Every gate's report (Semgrep, Gitleaks, Trivy, SBOM, Terraform plan, drift-check plan) is retained as a CI artifact for 30 days (`retention-days: 30` / `expire_in: 30 days`).",
+                "links": [
+                  {
+                    "href": ".github/workflows/pipeline.yml",
+                    "rel": "evidence",
+                    "text": "pipeline.yml"
+                  },
+                  {
+                    "href": ".gitlab-ci.yml",
+                    "rel": "evidence",
+                    "text": ".gitlab-ci.yml"
+                  },
+                  {
+                    "href": ".github/workflows/drift-check.yml",
+                    "rel": "evidence",
+                    "text": "drift-check.yml"
+                  }
+                ]
+              },
+              {
+                "uuid": "fa1b7322-9105-56d2-9906-f941a305d406",
+                "control-id": "ca-7",
+                "description": "A scheduled job runs `terraform plan -detailed-exitcode` against LocalStack daily (non-zero exit on drift); the deeper classify/remediate story is linked, not vendored.",
+                "links": [
+                  {
+                    "href": ".github/workflows/drift-check.yml",
+                    "rel": "evidence",
+                    "text": ".github/workflows/drift-check.yml"
+                  },
+                  {
+                    "href": "docs/continuous-monitoring.md",
+                    "rel": "evidence",
+                    "text": "continuous-monitoring.md"
+                  },
+                  {
+                    "href": "docs/evidence/phase5-drift-detected.txt",
+                    "rel": "evidence",
+                    "text": "phase5-drift-detected.txt"
+                  }
+                ]
+              },
+              {
+                "uuid": "2caab036-a4ad-58df-a8fa-1079ea417334",
+                "control-id": "sc-7",
+                "description": "Terraform provisions a dedicated VPC, public subnet, internet gateway, route table, and a security group scoping ingress to the app port only.",
+                "links": [
+                  {
+                    "href": "terraform/main.tf#L3-L72",
+                    "rel": "evidence",
+                    "text": "terraform/main.tf#L3-L72"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

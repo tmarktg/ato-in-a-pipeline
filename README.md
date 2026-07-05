@@ -19,6 +19,7 @@ non-goals). Every control below is mapped to real, working evidence in the
 - [x] **Phase 4** — Kubernetes deploy with Kyverno policy enforcement
 - [x] **Phase 5** — Continuous monitoring (drift detection)
 - [x] **Phase 6** — NIST 800-53 compliance matrix
+- [x] **Phase 7** — OSCAL compliance-as-code (generated matrix + machine-readable component-definition)
 
 ## Architecture
 
@@ -195,3 +196,15 @@ families to the file, pipeline stage, or evidence artifact that actually
 backs each one — no aspirational rows. It also lists what's deliberately
 *not* mapped (account management, backups, incident response) because this
 repo genuinely doesn't implement them, rather than padding the table.
+
+## Machine-readable compliance (OSCAL, Phase 7)
+
+The matrix above and [`compliance/oscal/component-definition.json`](compliance/oscal/component-definition.json)
+are both generated from a single source of truth,
+[`compliance/controls.yaml`](compliance/controls.yaml), by
+[`scripts/generate_compliance.py`](scripts/generate_compliance.py); CI
+regenerates both on every push and fails if either differs from what's
+committed, then validates the OSCAL JSON against the official schema. See
+[ADR 0006](docs/adr/0006-oscal-compliance-generation.md) for why
+`component-definition` and not a full SSP, and how this pattern maps to
+eMASS/Xacta ingestion in a real cATO pipeline.

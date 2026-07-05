@@ -68,6 +68,21 @@ jobs:
           path: gitleaks-report.json
           retention-days: 30
 
+  compliance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+      - name: Regenerate compliance matrix + OSCAL from controls.yaml
+        run: python scripts/generate_compliance.py
+      - name: Fail if generated output differs from committed files
+        run: git diff --exit-code docs/compliance-matrix.md compliance/oscal/component-definition.json
+      - name: Validate OSCAL component-definition against the schema
+        run: python scripts/validate_oscal.py
+
   terraform:
     runs-on: ubuntu-latest
     services:
