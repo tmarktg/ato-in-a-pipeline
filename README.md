@@ -90,7 +90,13 @@ sbom → sign → publish`.
 Evidence that the gates actually block, not just advise:
 [`docs/evidence/phase1-scan-gate-blocks-vulnerable-dependency.txt`](docs/evidence/phase1-scan-gate-blocks-vulnerable-dependency.txt)
 — a deliberately vulnerable dependency (`pyyaml==5.3.1`, CVE-2020-14343,
-CRITICAL) fails the scan stage with exit code 1.
+CRITICAL) fails the scan stage with exit code 1 — and
+[`docs/evidence/phase1-secrets-gate-blocks-committed-credential.txt`](docs/evidence/phase1-secrets-gate-blocks-committed-credential.txt)
+— a deliberately committed fake AWS credential fails the secrets stage the
+same way, on a demo branch never merged to main. Combined with the K8s
+admission-denial evidence in [Phase 4](#kubernetes-deploy--policy-enforcement-phase-4),
+a bad commit is demonstrably blocked at all three layers `Project.md` asks
+for.
 
 ## Hardened base image (Phase 2)
 
