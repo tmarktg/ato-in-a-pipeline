@@ -3,7 +3,7 @@ IMAGE_TAG ?= local
 VENV ?= .venv
 PYTHON ?= $(VENV)/bin/python
 
-.PHONY: venv run test lint image scan clean
+.PHONY: venv run test lint image scan clean localstack-up localstack-down tf-plan tf-apply tf-destroy
 
 venv:
 	python3.12 -m venv $(VENV)
@@ -29,3 +29,20 @@ scan: image
 
 clean:
 	rm -rf $(VENV) .pytest_cache .ruff_cache **/__pycache__ readiness.db
+
+localstack-up:
+	docker run -d --name localstack -p 4566:4566 \
+		-e SERVICES=ec2,sts,iam,s3,dynamodb localstack/localstack:3.8
+	until curl -s http://localhost:4566/_localstack/health | grep -q '"s3"'; do sleep 1; done
+
+localstack-down:
+	docker rm -f localstack
+
+tf-plan:
+	cd terraform && terraform init && terraform plan
+
+tf-apply:
+	cd terraform && terraform init && terraform apply
+
+tf-destroy:
+	cd terraform && terraform destroy

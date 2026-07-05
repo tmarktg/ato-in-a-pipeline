@@ -14,7 +14,7 @@ non-goals).
 - [x] **Phase 0** — Readiness Board app (FastAPI, 100% test coverage, non-root/read-only-fs container)
 - [x] **Phase 1** — CI with hard-blocking gates (Semgrep, Gitleaks, Trivy, Syft, Cosign)
 - [x] **Phase 2** — Hardened base image (UBI9) + OpenSCAP DISA STIG remediation
-- [ ] Phase 3 — Terraform/LocalStack infra
+- [x] **Phase 3** — Terraform/LocalStack infra (VPC/network, S3, DynamoDB)
 - [ ] Phase 4 — Kubernetes deploy with Kyverno policy enforcement
 - [ ] Phase 5 — Continuous monitoring (drift detection)
 - [ ] Phase 6 — NIST 800-53 compliance matrix
@@ -27,9 +27,10 @@ flowchart LR
 
     subgraph CI["CI pipeline (Phase 1)"]
         direction TB
-        Lint --> Test --> SAST --> Secrets --> Build --> Scan --> SBOM --> Sign --> Publish
+        Lint --> Test --> SAST --> Secrets --> Terraform --> Build --> Scan --> SBOM --> Sign --> Publish
     end
 
+    Terraform -.->|"plan/apply"| Infra["VPC, S3, DynamoDB\n(LocalStack, Phase 3)"]
     CI --> Registry[(Container registry)]
     Registry --> K8s
 
@@ -52,6 +53,11 @@ make test    # pytest, 100% coverage gate
 make lint    # ruff
 make image   # build the hardened UBI9-based container image
 make run     # run the app locally against a SQLite DB
+
+make localstack-up    # start LocalStack (community edition)
+make tf-plan          # terraform init + plan against LocalStack
+make tf-apply         # terraform init + apply against LocalStack
+make localstack-down  # tear down LocalStack
 ```
 
 A full `make demo` (spin up kind/k3s and deploy end-to-end through every
@@ -61,8 +67,8 @@ image to actually deploy through.
 ## CI pipeline (Phase 1)
 
 `.gitlab-ci.yml` and `.github/workflows/pipeline.yml` both run the same
-nine stages: `lint → test → sast → secrets → build → scan → sbom → sign →
-publish`.
+ten stages: `lint → test → sast → secrets → terraform → build → scan →
+sbom → sign → publish`.
 
 - **SAST** — Semgrep (`.semgrep.yml`), fails on ERROR severity.
 - **Secrets** — Gitleaks (`.gitleaks.toml`), fails on any finding.
@@ -108,6 +114,24 @@ artifact of the scanner's own install pulling in a PAM stack the shipped
 image doesn't otherwise have, and one (DNS servers in `/etc/resolv.conf`)
 is overwritten by Docker at container start regardless of what ships in
 the image.
+
+## Infrastructure (Phase 3)
+
+`terraform/` provisions against [LocalStack](https://www.localstack.cloud/)
+(community/free edition): a VPC with a public subnet, internet gateway,
+route table, and security group (real network primitives, not stubs), plus
+an S3 bucket for long-term SBOM/scan-report archival and a DynamoDB table
+demonstrating the remote-state lock pattern. `terraform apply` is verified
+idempotent (`0 added, 0 changed, 0 destroyed` on a second apply). CI runs
+`fmt`, `validate`, and `plan` (with plan output posted as a build artifact)
+against a LocalStack service container on every push.
+
+There's deliberately no Terraform-provisioned container registry — ECR is
+a LocalStack **Pro** (paid) feature, which would violate this project's own
+no-cloud-spend constraint. The real registry is GHCR/GitLab's registry,
+already wired up in Phase 1. Full reasoning, plus exactly how the local
+state backend maps to a real S3 + DynamoDB backend in real AWS:
+[ADR 0004](docs/adr/0004-terraform-localstack-scope.md).
 
 ## Compliance matrix
 

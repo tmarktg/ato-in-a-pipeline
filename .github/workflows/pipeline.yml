@@ -68,6 +68,39 @@ jobs:
           path: gitleaks-report.json
           retention-days: 30
 
+  terraform:
+    runs-on: ubuntu-latest
+    services:
+      localstack:
+        image: localstack/localstack:3.8
+        ports:
+          - 4566:4566
+        env:
+          SERVICES: ec2,sts,iam,s3,dynamodb
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.15.7"
+      - name: Wait for LocalStack
+        run: |
+          until curl -s http://localhost:4566/_localstack/health | grep -q '"s3"'; do sleep 2; done
+      - name: terraform fmt
+        run: terraform -chdir=terraform fmt -check -diff
+      - name: terraform init
+        run: terraform -chdir=terraform init
+      - name: terraform validate
+        run: terraform -chdir=terraform validate
+      - name: terraform plan
+        env:
+          TF_VAR_localstack_endpoint: "http://localhost:4566"
+        run: terraform -chdir=terraform plan -out=tfplan.out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan
+          path: terraform/tfplan.out
+          retention-days: 30
+
   build:
     runs-on: ubuntu-latest
     needs: [lint, test, sast, secrets]

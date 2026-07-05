@@ -3,6 +3,7 @@ stages:
   - test
   - sast
   - secrets
+  - terraform
   - build
   - scan
   - sbom
@@ -84,6 +85,42 @@ secrets:
     when: always
     paths:
       - gitleaks-report.json
+    expire_in: 30 days
+
+terraform-fmt:
+  stage: terraform
+  image: hashicorp/terraform:1.15
+  script:
+    - cd terraform
+    - terraform fmt -check -diff
+
+terraform-validate:
+  stage: terraform
+  image: hashicorp/terraform:1.15
+  script:
+    - cd terraform
+    - terraform init -backend=false
+    - terraform validate
+
+terraform-plan:
+  stage: terraform
+  image: hashicorp/terraform:1.15
+  services:
+    - name: localstack/localstack:3.8
+      alias: localstack
+      variables:
+        SERVICES: "ec2,sts,iam,s3,dynamodb"
+  variables:
+    TF_VAR_localstack_endpoint: "http://localstack:4566"
+  before_script:
+    - until wget -qO- http://localstack:4566/_localstack/health | grep -q '"s3"'; do sleep 2; done
+  script:
+    - cd terraform
+    - terraform init
+    - terraform plan -out=tfplan.out
+  artifacts:
+    paths:
+      - terraform/tfplan.out
     expire_in: 30 days
 
 build:

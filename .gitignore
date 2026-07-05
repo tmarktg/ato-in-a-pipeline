@@ -8,3 +8,10 @@ __pycache__/
 htmlcov/
 cosign.key
 .claude/
+
+# Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/tfplan.out
+terraform/crash.log
