@@ -1,0 +1,123 @@
+=== bad-root.yaml ===
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-root
+  namespace: readiness-board-dev
+spec:
+  containers:
+    - name: app
+      image: ghcr.io/tmarktg/ato-in-a-pipeline:stable
+      resources:
+        limits: {cpu: "100m", memory: "64Mi"}
+
+$ kubectl apply -f bad-root.yaml
+Error from server: error when creating "/tmp/bad-root.yaml": admission webhook "validate.kyverno.svc-fail" denied the request: 
+
+resource Pod/readiness-board-dev/bad-root was blocked due to the following policies 
+
+require-non-root:
+  check-runAsNonRoot: 'validation error: Containers must set securityContext.runAsNonRoot=true
+    (at the pod or container level) and must not set runAsUser to 0. rule check-runAsNonRoot[0]
+    failed at path /spec/securityContext/runAsNonRoot/ rule check-runAsNonRoot[1]
+    failed at path /spec/containers/0/securityContext/'
+
+=== bad-registry.yaml ===
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-registry
+  namespace: readiness-board-dev
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+    - name: app
+      image: docker.io/library/nginx:1.27
+      resources:
+        limits: {cpu: "100m", memory: "64Mi"}
+
+$ kubectl apply -f bad-registry.yaml
+Error from server: error when creating "/tmp/bad-registry.yaml": admission webhook "validate.kyverno.svc-fail" denied the request: 
+
+resource Pod/readiness-board-dev/bad-registry was blocked due to the following policies 
+
+restrict-registry:
+  check-registry: 'validation failure: validation error: Images must be pulled from
+    ghcr.io/tmarktg/* (the approved registry). rule check-registry failed at path
+    /image/'
+
+=== bad-limits.yaml ===
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-limits
+  namespace: readiness-board-dev
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+    - name: app
+      image: ghcr.io/tmarktg/ato-in-a-pipeline:stable
+
+$ kubectl apply -f bad-limits.yaml
+Error from server: error when creating "/tmp/bad-limits.yaml": admission webhook "validate.kyverno.svc-fail" denied the request: 
+
+resource Pod/readiness-board-dev/bad-limits was blocked due to the following policies 
+
+require-resource-limits:
+  check-resource-limits: 'validation failure: validation error: Every container must
+    set resources.limits.cpu and resources.limits.memory. rule check-resource-limits
+    failed at path /resources/limits/'
+
+=== bad-latest.yaml ===
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-latest
+  namespace: readiness-board-dev
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+    - name: app
+      image: ghcr.io/tmarktg/ato-in-a-pipeline:latest
+      resources:
+        limits: {cpu: "100m", memory: "64Mi"}
+
+$ kubectl apply -f bad-latest.yaml
+Error from server: error when creating "/tmp/bad-latest.yaml": admission webhook "mutate.kyverno.svc-fail" denied the request: 
+
+resource Pod/readiness-board-dev/bad-latest was blocked due to the following policies 
+
+require-signed-images:
+  check-image-signature: 'failed to verify image ghcr.io/tmarktg/ato-in-a-pipeline:latest:
+    .attestors[0].entries[0].keys: image tag not found: GET https://ghcr.io/v2/tmarktg/ato-in-a-pipeline/manifests/latest:
+    MANIFEST_UNKNOWN: manifest unknown'
+
+=== bad-latest.yaml (disallow-latest-tag policy in isolation) ===
+# require-signed-images temporarily removed for this capture, since ghcr.io
+# has no real :latest tag published and would otherwise deny this pod for
+# an unresolvable reference before disallow-latest-tag gets a chance to run.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-latest
+  namespace: readiness-board-dev
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+    - name: app
+      image: ghcr.io/tmarktg/ato-in-a-pipeline:latest
+      resources:
+        limits: {cpu: "100m", memory: "64Mi"}
+
+$ kubectl apply -f bad-latest.yaml
+Error from server: error when creating "/tmp/bad-latest.yaml": admission webhook "validate.kyverno.svc-fail" denied the request: 
+
+resource Pod/readiness-board-dev/bad-latest was blocked due to the following policies 
+
+disallow-latest-tag:
+  disallow-latest-tag: 'validation failure: Using the mutable '':latest'' tag is not
+    allowed; pin to a specific tag or digest.'

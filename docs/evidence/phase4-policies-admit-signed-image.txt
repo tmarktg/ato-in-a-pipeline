@@ -1,0 +1,20 @@
+$ kubectl get clusterpolicy
+NAME                      ADMISSION   BACKGROUND   READY   AGE   MESSAGE
+disallow-latest-tag       true        true         True    13m   Ready
+require-non-root          true        true         True    13m   Ready
+require-resource-limits   true        true         True    13m   Ready
+require-signed-images     true        false        True    11m   Ready
+restrict-registry         true        true         True    11m   Ready
+
+$ kustomize build k8s/overlays/dev | kubectl apply -f -
+namespace/readiness-board-dev unchanged
+service/readiness-board unchanged
+deployment.apps/readiness-board configured
+
+$ kubectl -n readiness-board-dev get pods -o wide
+NAME                              READY   STATUS    RESTARTS   AGE   IP           NODE                       NOMINATED NODE   READINESS GATES
+readiness-board-cf6554798-hdfzm   1/1     Running   0          12m   10.244.0.9   ato-phase4-control-plane   <none>           <none>
+
+$ kubectl -n readiness-board-dev get pod -o jsonpath="{.items[0].spec.containers[0].image}{\"
+\"}"
+ghcr.io/tmarktg/ato-in-a-pipeline:stable@sha256:54518b723142e0086798e4a7d8db531d51351d74515ae5706abfb052b159039d

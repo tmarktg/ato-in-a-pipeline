@@ -1,0 +1,37 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-signed-images
+  annotations:
+    policies.kyverno.io/title: Require Cosign-Signed Images
+    policies.kyverno.io/category: Supply Chain
+    policies.kyverno.io/severity: critical
+    policies.kyverno.io/description: >-
+      Images in this project's registry must carry a valid Cosign signature
+      from the repo key pair (see docs/adr/0001-cosign-key-management.md).
+      Unsigned or tampered images are denied admission.
+spec:
+  validationFailureAction: Enforce
+  background: false
+  webhookTimeoutSeconds: 30
+  failurePolicy: Fail
+  rules:
+    - name: check-image-signature
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      verifyImages:
+        - imageReferences:
+            - "ghcr.io/tmarktg/ato-in-a-pipeline*"
+          mutateDigest: true
+          attestors:
+            - count: 1
+              entries:
+                - keys:
+                    publicKeys: |-
+                      -----BEGIN PUBLIC KEY-----
+                      MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE0qMjxsdFB9I+GnOJTnC1a4RI+smw
+                      jpg7JziQcoUGbbai+ONeJ5cwlV4sUk0/dbooL9r1qVxFQLIwVFnyERj76Q==
+                      -----END PUBLIC KEY-----

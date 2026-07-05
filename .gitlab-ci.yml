@@ -8,6 +8,7 @@ stages:
   - scan
   - sbom
   - sign
+  - k8s-policy
   - publish
 
 variables:
@@ -190,6 +191,46 @@ sign:
     - echo "$COSIGN_PRIVATE_KEY" > cosign.key
     - cosign sign --key cosign.key "$IMAGE_DIGEST"
     - cosign verify --key cosign.pub "$IMAGE_DIGEST"
+
+k8s-policy:
+  stage: k8s-policy
+  image: docker:27
+  services:
+    - docker:27-dind
+  needs:
+    - build
+    - sign
+  before_script:
+    - apk add --no-cache curl bash
+    - curl -Lo /usr/local/bin/kind https://kind.sigs.k8s.io/dl/v0.30.0/kind-linux-amd64
+    - chmod +x /usr/local/bin/kind
+    - curl -Lo /usr/local/bin/kubectl "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+    - chmod +x /usr/local/bin/kubectl
+    - curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash -s -- 5.8.1 /usr/local/bin
+    - curl -sSL -o kyverno-cli.tar.gz https://github.com/kyverno/kyverno/releases/download/v1.18.1/kyverno-cli_v1.18.1_linux_x86_64.tar.gz
+    - tar -xzf kyverno-cli.tar.gz kyverno && mv kyverno /usr/local/bin/kyverno
+    - curl -sSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  script:
+    # Offline check: `kyverno apply` runs each policy against its own
+    # pass/fail fixtures — no cluster needed for this part.
+    - ./policy-tests/run.sh
+    - kind create cluster --name ato-ci --wait 120s
+    - helm repo add kyverno https://kyverno.github.io/kyverno/
+    - helm repo update
+    - helm install kyverno kyverno/kyverno -n kyverno --create-namespace --wait --timeout 180s
+    - kubectl apply -f policy/
+    - kubectl wait --for=condition=Ready clusterpolicy --all --timeout=60s
+    # This job builds to $CI_REGISTRY_IMAGE (GitLab's own registry, see the
+    # build job above), which the restrict-registry/require-signed-images
+    # policies don't allow — GHCR is this project's one approved registry
+    # (ADR 0004/README). So this deploys the real, already-published GHCR
+    # :stable image (the same default k8s/overlays/dev uses), proving the
+    # policies admit a real signed artifact rather than skipping the check.
+    - kubectl create namespace readiness-board-dev --dry-run=client -o yaml | kubectl apply -f -
+    - kustomize build k8s/overlays/dev | kubectl apply -f -
+    - kubectl -n readiness-board-dev wait --for=condition=Available deployment/readiness-board --timeout=120s
+  after_script:
+    - kind delete cluster --name ato-ci || true
 
 publish:
   stage: publish

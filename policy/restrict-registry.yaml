@@ -1,0 +1,28 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restrict-registry
+  annotations:
+    policies.kyverno.io/title: Restrict Image Registry
+    policies.kyverno.io/category: Supply Chain
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: >-
+      Only images from ghcr.io/tmarktg/ (this project's GHCR namespace) may
+      be deployed. Blocks images pulled from Docker Hub, arbitrary
+      registries, or typosquatted repos.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: check-registry
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      validate:
+        message: "Images must be pulled from ghcr.io/tmarktg/* (the approved registry)."
+        foreach:
+          - list: "request.object.spec.containers"
+            pattern:
+              image: "ghcr.io/tmarktg/*"

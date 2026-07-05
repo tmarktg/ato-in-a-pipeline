@@ -3,8 +3,8 @@
 A DoD-style DevSecOps software factory: a small FastAPI service ("Readiness
 Board") whose CI pipeline enforces **hard-blocking** security gates (SAST,
 secrets, vulnerability scanning), produces signed images with attached
-SBOMs, and (in later phases) deploys through Kyverno-enforced Kubernetes
-policy. The pipeline is the product; the app exists to be shipped by it.
+SBOMs, and deploys through Kyverno-enforced Kubernetes policy. The pipeline
+is the product; the app exists to be shipped by it.
 Everything runs locally or in free CI tiers — no cloud spend, and this is
 not a real ATO (see [`Project.md`](Project.md) for the full spec and
 non-goals).
@@ -15,7 +15,7 @@ non-goals).
 - [x] **Phase 1** — CI with hard-blocking gates (Semgrep, Gitleaks, Trivy, Syft, Cosign)
 - [x] **Phase 2** — Hardened base image (UBI9) + OpenSCAP DISA STIG remediation
 - [x] **Phase 3** — Terraform/LocalStack infra (VPC/network, S3, DynamoDB)
-- [ ] Phase 4 — Kubernetes deploy with Kyverno policy enforcement
+- [x] **Phase 4** — Kubernetes deploy with Kyverno policy enforcement
 - [ ] Phase 5 — Continuous monitoring (drift detection)
 - [ ] Phase 6 — NIST 800-53 compliance matrix
 
@@ -34,8 +34,8 @@ flowchart LR
     CI --> Registry[(Container registry)]
     Registry --> K8s
 
-    subgraph K8s["Kubernetes (Phase 4, planned)"]
-        Kyverno["Kyverno admission policy\n(non-root, signed images,\napproved registry, no :latest)"]
+    subgraph K8s["Kubernetes (Phase 4)"]
+        Kyverno["Kyverno admission policy\n(non-root, signed images,\napproved registry, no :latest,\nresource limits)"]
     end
 
     K8s --> Monitor["Drift detection\n(Phase 5, planned)"]
@@ -44,8 +44,6 @@ flowchart LR
 ```
 
 ## Quickstart
-
-Available today (Phase 0-2):
 
 ```bash
 make venv    # create .venv, install dev dependencies
@@ -58,11 +56,17 @@ make localstack-up    # start LocalStack (community edition)
 make tf-plan          # terraform init + plan against LocalStack
 make tf-apply         # terraform init + apply against LocalStack
 make localstack-down  # tear down LocalStack
+
+make demo       # kind up + Kyverno install + policy tests + deploy the real signed image
+make kind-down  # tear the demo cluster down
 ```
 
-A full `make demo` (spin up kind/k3s and deploy end-to-end through every
-gate) lands in Phase 4, once there's a Kubernetes policy layer for the
-image to actually deploy through.
+`make demo` requires `kind`, `kubectl`, `kustomize`, `helm`, and the
+Kyverno CLI on `PATH`. It deploys the real, signed
+`ghcr.io/tmarktg/ato-in-a-pipeline:stable` image through all 5 Kyverno
+policies against a throwaway local kind cluster — see
+[Kubernetes deploy (Phase 4)](#kubernetes-deploy--policy-enforcement-phase-4)
+below.
 
 ## CI pipeline (Phase 1)
 
@@ -132,6 +136,43 @@ no-cloud-spend constraint. The real registry is GHCR/GitLab's registry,
 already wired up in Phase 1. Full reasoning, plus exactly how the local
 state backend maps to a real S3 + DynamoDB backend in real AWS:
 [ADR 0004](docs/adr/0004-terraform-localstack-scope.md).
+
+## Kubernetes deploy & policy enforcement (Phase 4)
+
+`k8s/base` (Deployment + Service) and `k8s/overlays/{dev,prod}` (Kustomize
+overlays — replica counts, resource limits, namespaces) deploy the
+Readiness Board app. Admission into the cluster is gated by five Kyverno
+`ClusterPolicy` resources in `policy/`, each in its own file:
+
+| Policy | Enforces |
+| --- | --- |
+| [`require-non-root.yaml`](policy/require-non-root.yaml) | `runAsNonRoot: true`, no `runAsUser: 0` |
+| [`require-signed-images.yaml`](policy/require-signed-images.yaml) | Cosign signature verification against `cosign.pub` ([ADR 0001](docs/adr/0001-cosign-key-management.md)) |
+| [`restrict-registry.yaml`](policy/restrict-registry.yaml) | Images must come from `ghcr.io/tmarktg/*` |
+| [`require-resource-limits.yaml`](policy/require-resource-limits.yaml) | Every container sets `resources.limits.cpu` and `.memory` |
+| [`disallow-latest-tag.yaml`](policy/disallow-latest-tag.yaml) | No bare/`:latest` image references |
+
+Why Kyverno over Gatekeeper, and kind (CI) over k3s (local demo):
+[ADR 0005](docs/adr/0005-kind-and-kyverno.md).
+
+**Policy tests** (`policy-tests/`) — one passing and one violating fixture
+per policy, run via `kyverno apply <policy> --resource <fixture>` and
+checked by `policy-tests/run.sh` (`make policy-test`, and the first step of
+`make demo`). All 5 pass/fail both directions today.
+
+**Evidence** — a live kind cluster, all 5 policies enforced, admitting the
+real signed image and denying violations of every policy, one at a time:
+
+- [`phase4-policies-admit-signed-image.txt`](docs/evidence/phase4-policies-admit-signed-image.txt) — the real, signed `ghcr.io/tmarktg/ato-in-a-pipeline:stable` image running in-cluster.
+- [`phase4-admission-denied-unsigned-image.txt`](docs/evidence/phase4-admission-denied-unsigned-image.txt) — an unverifiable image denied by `require-signed-images`.
+- [`phase4-admission-denied-other-policies.txt`](docs/evidence/phase4-admission-denied-other-policies.txt) — root containers, an unapproved registry, missing resource limits, and a `:latest` tag, each denied by its respective policy.
+
+Both CI pipelines run the same flow on every push: `kyverno apply` fixture
+tests, a throwaway kind cluster, Kyverno install, policy apply, then a
+deploy of that run's own signed image digest into the `dev` overlay
+(GitLab's mirror deploys the published GHCR `:stable` image instead, since
+that pipeline's own build lands in GitLab's registry, not GHCR — see the
+`k8s-policy` job comments in `.gitlab-ci.yml`).
 
 ## Compliance matrix
 

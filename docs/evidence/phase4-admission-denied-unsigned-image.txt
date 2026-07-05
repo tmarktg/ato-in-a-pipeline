@@ -1,0 +1,25 @@
+$ cat unsigned-pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: unsigned-image-demo
+  namespace: readiness-board-dev
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+    - name: app
+      image: ghcr.io/tmarktg/ato-in-a-pipeline:unsigned-test-tag
+      resources:
+        limits: {cpu: "100m", memory: "64Mi"}
+
+$ kubectl apply -f unsigned-pod.yaml
+Error from server: error when creating "/tmp/unsigned-pod.yaml": admission webhook "mutate.kyverno.svc-fail" denied the request: 
+
+resource Pod/readiness-board-dev/unsigned-image-demo was blocked due to the following policies 
+
+require-signed-images:
+  check-image-signature: 'failed to verify image ghcr.io/tmarktg/ato-in-a-pipeline:unsigned-test-tag:
+    .attestors[0].entries[0].keys: image tag not found: GET https://ghcr.io/v2/tmarktg/ato-in-a-pipeline/manifests/unsigned-test-tag:
+    MANIFEST_UNKNOWN: manifest unknown'
+(exit code: 1)

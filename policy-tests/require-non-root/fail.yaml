@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-root
+  namespace: default
+spec:
+  containers:
+    - name: app
+      image: ghcr.io/tmarktg/ato-in-a-pipeline:stable
+      resources:
+        limits: {cpu: "100m", memory: "64Mi"}

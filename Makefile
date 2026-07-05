@@ -3,7 +3,10 @@ IMAGE_TAG ?= local
 VENV ?= .venv
 PYTHON ?= $(VENV)/bin/python
 
-.PHONY: venv run test lint image scan clean localstack-up localstack-down tf-plan tf-apply tf-destroy
+KIND_CLUSTER ?= ato-demo
+
+.PHONY: venv run test lint image scan clean localstack-up localstack-down tf-plan tf-apply tf-destroy \
+	kind-up kind-down policy-test deploy-dev demo
 
 venv:
 	python3.12 -m venv $(VENV)
@@ -46,3 +49,33 @@ tf-apply:
 
 tf-destroy:
 	cd terraform && terraform destroy
+
+# Phase 4 — kind cluster + Kyverno policy enforcement. Use k3s instead of
+# kind here if you already have it running locally (same manifests/policies
+# either way); see docs/adr/0005-kind-and-kyverno.md.
+kind-up:
+	kind create cluster --name $(KIND_CLUSTER) --wait 120s
+	helm repo add kyverno https://kyverno.github.io/kyverno/ --force-update
+	helm repo update
+	helm install kyverno kyverno/kyverno -n kyverno --create-namespace --wait --timeout 180s
+	kubectl apply -f policy/
+	kubectl wait --for=condition=Ready clusterpolicy --all --timeout=60s
+
+kind-down:
+	kind delete cluster --name $(KIND_CLUSTER)
+
+policy-test:
+	./policy-tests/run.sh
+
+deploy-dev:
+	kubectl create namespace readiness-board-dev --dry-run=client -o yaml | kubectl apply -f -
+	kustomize build k8s/overlays/dev | kubectl apply -f -
+	kubectl -n readiness-board-dev wait --for=condition=Available deployment/readiness-board --timeout=120s
+
+# End-to-end: spin up kind, enforce Kyverno policy, deploy the real signed
+# GHCR image through it. Tears the cluster down after.
+demo: kind-up policy-test deploy-dev
+	kubectl -n readiness-board-dev get pods -o wide
+	@echo
+	@echo "Readiness Board is deployed and passed all 5 Kyverno policies."
+	@echo "Run 'make kind-down' to tear the cluster down."
