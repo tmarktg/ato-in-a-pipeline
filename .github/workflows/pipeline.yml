@@ -101,14 +101,14 @@ jobs:
       # Unfixed CRITICALs (no vendor patch available) are tracked, not
       # blocking — see docs/adr/0002-trivy-unfixed-cve-policy.md.
       - name: Trivy CRITICAL gate
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ needs.build.outputs.digest }}
           exit-code: "1"
           severity: CRITICAL
           ignore-unfixed: true
       - name: Trivy HIGH report (non-blocking)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ needs.build.outputs.digest }}
           exit-code: "0"
