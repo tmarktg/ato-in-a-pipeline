@@ -4,6 +4,7 @@ stages:
   - sast
   - secrets
   - compliance
+  - ansible-lint
   - terraform
   - build
   - scan
@@ -113,6 +114,23 @@ compliance:
     - python scripts/generate_compliance.py
     - git diff --exit-code docs/compliance-matrix.md compliance/oscal/component-definition.json
     - python scripts/validate_oscal.py
+
+ansible-lint:
+  stage: ansible-lint
+  except:
+    - schedules
+  image: python:3.12-slim-bookworm
+  extends: .pip_cache
+  variables:
+    PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  before_script:
+    - pip install ansible-core ansible-lint
+  script:
+    - cd ansible
+    - ansible-galaxy collection install -r requirements.yml
+    - ansible-lint --profile production .
+    - ansible-playbook --syntax-check playbooks/harden.yml
+    - ansible-playbook --syntax-check playbooks/provision-demo-env.yml
 
 terraform-fmt:
   stage: terraform

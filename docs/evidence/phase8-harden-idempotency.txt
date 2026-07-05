@@ -1,0 +1,34 @@
+$ make ansible-idempotency
+(second run of harden.yml against the SAME container hardened in
+phase8-harden-first-run.txt — not recreated)
+
+PLAY [Apply Phase 2 STIG hardening to a running UBI9 target] *******************
+
+TASK [Check whether Python3 is already present on the target] ******************
+ok: [ubi9_target]
+
+TASK [stig_hardening : [accounts_umask_etc_bashrc] Set default umask to 077 in /etc/bashrc] ***
+ok: [ubi9_target]
+
+TASK [stig_hardening : [accounts_umask_etc_profile] Ensure default umask is set to 077 in /etc/profile] ***
+ok: [ubi9_target]
+
+TASK [stig_hardening : [file_permission_user_init_files_root] Restrict root shell-init file permissions to 0640] ***
+ok: [ubi9_target] => (item=/root/.bashrc)
+ok: [ubi9_target] => (item=/root/.bash_profile)
+ok: [ubi9_target] => (item=/root/.bash_logout)
+ok: [ubi9_target] => (item=/root/.cshrc)
+ok: [ubi9_target] => (item=/root/.tcshrc)
+
+TASK [stig_hardening : [rootfiles_configured] Ensure /etc/tmpfiles.d exists] ***
+ok: [ubi9_target]
+
+TASK [stig_hardening : [rootfiles_configured] Override tmpfiles.d root dotfile permissions to 600] ***
+ok: [ubi9_target]
+
+PLAY RECAP *********************************************************************
+ubi9_target                : ok=6    changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0
+
+Note: "skipped=1" is the Python-bootstrap pre-task — it's skipped, not run
+a second time, because /usr/bin/python3.12 is now already present from the
+first run. changed=0, failed=0 for every hardening task: fully idempotent.

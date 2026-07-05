@@ -3,7 +3,7 @@
     "uuid": "61d3982a-a79c-5856-83d2-fc528de376d5",
     "metadata": {
       "title": "ato-in-a-pipeline Component Definition",
-      "last-modified": "2025-01-01T00:00:00+00:00",
+      "last-modified": "2026-07-05T12:29:21-07:00",
       "version": "1.0.0",
       "oscal-version": "1.2.1"
     },
@@ -22,12 +22,27 @@
               {
                 "uuid": "aad8df66-2379-52c8-9456-f6031d553d5f",
                 "control-id": "cm-2",
-                "description": "The LocalStack infra baseline (VPC, subnet, internet gateway, route table, security group, S3 bucket, DynamoDB lock table) is codified in Terraform, not manually configured.",
+                "description": "The LocalStack infra baseline (VPC, subnet, internet gateway, route table, security group, S3 bucket, DynamoDB lock table) is codified in Terraform, not manually configured. The OS-level STIG baseline is likewise codified as an idempotent Ansible role rather than a one-time image-build fix, re-applied and re-verified against a running container on demand (Phase 8).",
                 "links": [
                   {
                     "href": "terraform/main.tf",
                     "rel": "evidence",
                     "text": "terraform/main.tf"
+                  },
+                  {
+                    "href": "ansible/roles/stig_hardening/tasks/main.yml",
+                    "rel": "evidence",
+                    "text": "ansible/roles/stig_hardening/tasks/main.yml"
+                  },
+                  {
+                    "href": "docs/evidence/phase8-harden-idempotency.txt",
+                    "rel": "evidence",
+                    "text": "idempotency evidence"
+                  },
+                  {
+                    "href": "docs/adr/0007-ansible-configuration-management.md",
+                    "rel": "evidence",
+                    "text": "ADR 0007"
                   }
                 ]
               },
@@ -51,7 +66,7 @@
               {
                 "uuid": "668dc17f-6bae-575f-97ea-7fc39ba216d9",
                 "control-id": "cm-6",
-                "description": "The UBI9 base image is remediated against the RHEL9 DISA STIG profile (umask policy, root shell-init file permissions, tmpfiles override).",
+                "description": "The UBI9 base image is remediated against the RHEL9 DISA STIG profile (umask policy, root shell-init file permissions, tmpfiles override) at image-build time. Phase 8 re-expresses the same four settings as idempotent Ansible tasks that apply and verify them against a running container, proving the baseline isn't just a one-shot Dockerfile artifact; the same three findings ADR 0003 documents as structurally out of scope for any container (PAM/su, FIPS kernel mode, DNS resolv.conf) remain out of scope at runtime for the same reasons.",
                 "links": [
                   {
                     "href": "Dockerfile#L28-L42",
@@ -72,6 +87,26 @@
                     "href": "docs/adr/0003-base-image.md",
                     "rel": "evidence",
                     "text": "ADR 0003"
+                  },
+                  {
+                    "href": "ansible/roles/stig_hardening/tasks/main.yml",
+                    "rel": "evidence",
+                    "text": "ansible/roles/stig_hardening/tasks/main.yml"
+                  },
+                  {
+                    "href": "docs/evidence/phase8-harden-first-run.txt",
+                    "rel": "evidence",
+                    "text": "first-run evidence"
+                  },
+                  {
+                    "href": "docs/evidence/phase8-stig-verify.txt",
+                    "rel": "evidence",
+                    "text": "STIG verification evidence"
+                  },
+                  {
+                    "href": "docs/adr/0007-ansible-configuration-management.md",
+                    "rel": "evidence",
+                    "text": "ADR 0007"
                   }
                 ]
               },

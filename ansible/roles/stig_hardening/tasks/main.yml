@@ -1,0 +1,45 @@
+---
+# Re-expresses the four STIG findings Phase 2 fixed at image-build time
+# (docs/adr/0003-base-image.md) as idempotent runtime tasks against a
+# plain, pre-hardening ubi9-minimal container. Rule IDs match ADR 0003
+# exactly so the two remediations can be cross-checked line for line.
+
+- name: "[accounts_umask_etc_bashrc] Set default umask to 077 in /etc/bashrc"
+  ansible.builtin.replace:
+    path: /etc/bashrc
+    regexp: '(\[ `umask` -eq 0 \] && umask )022'
+    replace: '\g<1>077'
+
+- name: "[accounts_umask_etc_profile] Ensure default umask is set to 077 in /etc/profile"
+  ansible.builtin.lineinfile:
+    path: /etc/profile
+    line: "umask 077"
+    insertafter: EOF
+
+- name: "[file_permission_user_init_files_root] Restrict root shell-init file permissions to 0640"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    mode: "0640"
+  loop:
+    - /root/.bashrc
+    - /root/.bash_profile
+    - /root/.bash_logout
+    - /root/.cshrc
+    - /root/.tcshrc
+
+- name: "[rootfiles_configured] Ensure /etc/tmpfiles.d exists"
+  ansible.builtin.file:
+    path: /etc/tmpfiles.d
+    state: directory
+    mode: "0755"
+
+- name: "[rootfiles_configured] Override tmpfiles.d root dotfile permissions to 600"
+  ansible.builtin.copy:
+    dest: /etc/tmpfiles.d/rootfiles.conf
+    mode: "0644"
+    content: |
+      C /root/.bash_logout 600 root root - /usr/share/rootfiles/.bash_logout
+      C /root/.bash_profile 600 root root - /usr/share/rootfiles/.bash_profile
+      C /root/.bashrc 600 root root - /usr/share/rootfiles/.bashrc
+      C /root/.cshrc 600 root root - /usr/share/rootfiles/.cshrc
+      C /root/.tcshrc 600 root root - /usr/share/rootfiles/.tcshrc

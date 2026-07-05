@@ -1,0 +1,6 @@
+---
+- name: Provision the local toolchain make demo depends on
+  hosts: localhost
+  gather_facts: true
+  roles:
+    - demo_env

@@ -1,0 +1,17 @@
+---
+- name: Apply Phase 2 STIG hardening to a running UBI9 target
+  hosts: ubi9_target
+  gather_facts: false
+  pre_tasks:
+    - name: Check whether Python3 is already present on the target
+      ansible.builtin.raw: command -v python3.12
+      register: _python_check
+      changed_when: false
+      failed_when: false
+
+    - name: Bootstrap Python3 for Ansible module support
+      ansible.builtin.raw: microdnf install -y python3.12
+      when: _python_check.rc != 0
+      changed_when: _python_check.rc != 0
+  roles:
+    - stig_hardening

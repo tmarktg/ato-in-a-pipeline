@@ -20,6 +20,7 @@ non-goals). Every control below is mapped to real, working evidence in the
 - [x] **Phase 5** — Continuous monitoring (drift detection)
 - [x] **Phase 6** — NIST 800-53 compliance matrix
 - [x] **Phase 7** — OSCAL compliance-as-code (generated matrix + machine-readable component-definition)
+- [x] **Phase 8** — Configuration management with Ansible (idempotent STIG hardening + demo-env provisioning)
 
 ## Architecture
 
@@ -46,6 +47,11 @@ make drift-check  # terraform plan -detailed-exitcode against LocalStack (exit 2
 
 make compliance-gen    # regenerate docs/compliance-matrix.md + OSCAL component-definition.json
 make compliance-check  # regenerate, fail on drift, then validate the OSCAL JSON
+
+make ansible-deps        # install pinned Ansible collections (community.docker, ansible.posix)
+make ansible-harden      # recreate a fresh ubi9_target container, apply the STIG hardening role
+make ansible-idempotency # rerun the same role against that container, fail unless changed=0
+make ansible-provision   # install kind/kubectl/kustomize/helm/kyverno-cli (Linux x86_64 only)
 ```
 
 `make demo` requires `kind`, `kubectl`, `kustomize`, `helm`, and the
@@ -58,8 +64,8 @@ below.
 ## CI pipeline (Phase 1)
 
 `.gitlab-ci.yml` and `.github/workflows/pipeline.yml` both run the same
-eleven stages: `lint → test → sast → secrets → compliance → terraform →
-build → scan → sbom → sign → publish`.
+twelve stages: `lint → test → sast → secrets → compliance → ansible-lint →
+terraform → build → scan → sbom → sign → publish`.
 
 - **SAST** — Semgrep (`.semgrep.yml`), fails on ERROR severity.
 - **Secrets** — Gitleaks (`.gitleaks.toml`), fails on any finding.
@@ -67,6 +73,11 @@ build → scan → sbom → sign → publish`.
   `component-definition.json` from `compliance/controls.yaml`, fails on any
   drift from what's committed, then schema-validates the OSCAL JSON — see
   [Machine-readable compliance (OSCAL, Phase 7)](#machine-readable-compliance-oscal-phase-7)
+  below.
+- **Ansible-lint** — `ansible-lint --profile production` plus
+  `ansible-playbook --syntax-check` on both playbooks; any finding is red,
+  same as every other gate — see
+  [Configuration management (Phase 8)](#configuration-management-with-ansible-phase-8)
   below.
 - **Scan** — Trivy, fails on CRITICAL (unfixed CVEs with no vendor patch are
   tracked, not blocking — [ADR 0002](docs/adr/0002-trivy-unfixed-cve-policy.md)).
@@ -216,3 +227,31 @@ committed, then validates the OSCAL JSON against the official schema. See
 [ADR 0006](docs/adr/0006-oscal-compliance-generation.md) for why
 `component-definition` and not a full SSP, and how this pattern maps to
 eMASS/Xacta ingestion in a real cATO pipeline.
+
+## Configuration management with Ansible (Phase 8)
+
+Phase 2's STIG remediation only ever proved a setting was correct *at
+image-build time*. `ansible/roles/stig_hardening` re-expresses the same
+four fixes (default umask in `/etc/bashrc`/`/etc/profile`, root
+shell-init file permissions, the `/etc/tmpfiles.d` override) as idempotent
+tasks against a running, pre-hardening UBI9 container reached via the
+`community.docker.docker` connection plugin — no SSH, no VM, no cloud
+spend. `ansible/roles/demo_env` closes a separate gap: `make demo` used to
+silently assume `kind`/`kubectl`/`kustomize`/`helm`/the Kyverno CLI were
+already installed; it now provisions that exact pinned toolchain (Linux
+x86_64 only — it fails fast with a clear message elsewhere).
+
+**Evidence** — first run against a fresh container changes 6 tasks
+([`phase8-harden-first-run.txt`](docs/evidence/phase8-harden-first-run.txt));
+rerunning the same role against that same container reports `changed=0`
+([`phase8-harden-idempotency.txt`](docs/evidence/phase8-harden-idempotency.txt));
+the resulting filesystem state is verified directly inside the container,
+independent of Ansible's own report
+([`phase8-stig-verify.txt`](docs/evidence/phase8-stig-verify.txt)); and a
+deliberate violation (a bare `shell` task, no `changed_when`) on a
+throwaway branch is caught by the `ansible-lint` gate with a non-zero exit
+([`phase8-ansible-lint-fail.txt`](docs/evidence/phase8-ansible-lint-fail.txt)).
+
+Why a container target instead of a VM, why `community.docker.docker`,
+and why Molecule was considered and deferred:
+[ADR 0007](docs/adr/0007-ansible-configuration-management.md).

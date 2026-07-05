@@ -1,0 +1,34 @@
+$ make ansible-harden
+(first run against a freshly created, pre-hardening ubi9_target container:
+registry.access.redhat.com/ubi9/ubi-minimal:latest, no prior STIG remediation applied)
+
+PLAY [Apply Phase 2 STIG hardening to a running UBI9 target] *******************
+
+TASK [Check whether Python3 is already present on the target] ******************
+ok: [ubi9_target]
+
+TASK [Bootstrap Python3 for Ansible module support] ****************************
+changed: [ubi9_target]
+
+TASK [stig_hardening : [accounts_umask_etc_bashrc] Set default umask to 077 in /etc/bashrc] ***
+changed: [ubi9_target]
+
+TASK [stig_hardening : [accounts_umask_etc_profile] Ensure default umask is set to 077 in /etc/profile] ***
+changed: [ubi9_target]
+
+TASK [stig_hardening : [file_permission_user_init_files_root] Restrict root shell-init file permissions to 0640] ***
+changed: [ubi9_target] => (item=/root/.bashrc)
+changed: [ubi9_target] => (item=/root/.bash_profile)
+changed: [ubi9_target] => (item=/root/.bash_logout)
+changed: [ubi9_target] => (item=/root/.cshrc)
+changed: [ubi9_target] => (item=/root/.tcshrc)
+
+TASK [stig_hardening : [rootfiles_configured] Ensure /etc/tmpfiles.d exists] ***
+changed: [ubi9_target]
+
+TASK [stig_hardening : [rootfiles_configured] Override tmpfiles.d root dotfile permissions to 600] ***
+changed: [ubi9_target]
+
+PLAY RECAP *********************************************************************
+ubi9_target                : ok=7    changed=6    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

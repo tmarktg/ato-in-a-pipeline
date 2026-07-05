@@ -14,10 +14,19 @@
   implementation: >-
     The LocalStack infra baseline (VPC, subnet, internet gateway, route
     table, security group, S3 bucket, DynamoDB lock table) is codified in
-    Terraform, not manually configured.
+    Terraform, not manually configured. The OS-level STIG baseline is
+    likewise codified as an idempotent Ansible role rather than a one-time
+    image-build fix, re-applied and re-verified against a running
+    container on demand (Phase 8).
   evidence:
     - path: terraform/main.tf
       label: "`terraform/main.tf`"
+    - path: ansible/roles/stig_hardening/tasks/main.yml
+      label: "`ansible/roles/stig_hardening/tasks/main.yml`"
+    - path: docs/evidence/phase8-harden-idempotency.txt
+      label: "idempotency evidence"
+    - path: docs/adr/0007-ansible-configuration-management.md
+      label: "ADR 0007"
 
 - control_id: CM-3
   control_name: Configuration Change Control
@@ -34,7 +43,13 @@
   control_name: Configuration Settings
   implementation: >-
     The UBI9 base image is remediated against the RHEL9 DISA STIG profile
-    (umask policy, root shell-init file permissions, tmpfiles override).
+    (umask policy, root shell-init file permissions, tmpfiles override) at
+    image-build time. Phase 8 re-expresses the same four settings as
+    idempotent Ansible tasks that apply and verify them against a running
+    container, proving the baseline isn't just a one-shot Dockerfile
+    artifact; the same three findings ADR 0003 documents as structurally
+    out of scope for any container (PAM/su, FIPS kernel mode, DNS
+    resolv.conf) remain out of scope at runtime for the same reasons.
   evidence:
     - path: Dockerfile#L28-L42
       label: "`Dockerfile#L28-L42`"
@@ -44,6 +59,14 @@
       label: "after OpenSCAP report"
     - path: docs/adr/0003-base-image.md
       label: "ADR 0003"
+    - path: ansible/roles/stig_hardening/tasks/main.yml
+      label: "`ansible/roles/stig_hardening/tasks/main.yml`"
+    - path: docs/evidence/phase8-harden-first-run.txt
+      label: "first-run evidence"
+    - path: docs/evidence/phase8-stig-verify.txt
+      label: "STIG verification evidence"
+    - path: docs/adr/0007-ansible-configuration-management.md
+      label: "ADR 0007"
 
 - control_id: CM-7
   control_name: Least Functionality

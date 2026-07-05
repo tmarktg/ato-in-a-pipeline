@@ -6,7 +6,8 @@ PYTHON ?= $(VENV)/bin/python
 KIND_CLUSTER ?= ato-demo
 
 .PHONY: venv run test lint image scan clean localstack-up localstack-down tf-plan tf-apply tf-destroy \
-	kind-up kind-down policy-test deploy-dev demo drift-check compliance-gen compliance-check
+	kind-up kind-down policy-test deploy-dev demo drift-check compliance-gen compliance-check \
+	ansible-deps ansible-harden ansible-idempotency ansible-provision
 
 venv:
 	python3.12 -m venv $(VENV)
@@ -58,6 +59,28 @@ compliance-gen:
 compliance-check: compliance-gen
 	git diff --exit-code docs/compliance-matrix.md compliance/oscal/component-definition.json
 	$(PYTHON) scripts/validate_oscal.py
+
+# Phase 8 — config management. ansible-lint/ansible-playbook need to run
+# from inside ansible/ for ansible.cfg's roles_path to resolve.
+ansible-deps:
+	$(VENV)/bin/ansible-galaxy collection install -r ansible/requirements.yml
+
+# Recreates ubi9_target fresh every time, so "first run" always means
+# "against a truly clean, pre-hardening container" — see ADR 0007.
+ansible-harden:
+	docker rm -f ubi9_target >/dev/null 2>&1 || true
+	docker run -d --name ubi9_target registry.access.redhat.com/ubi9/ubi-minimal:latest sleep infinity
+	cd ansible && ../$(VENV)/bin/ansible-playbook playbooks/harden.yml
+
+# Reruns harden.yml against the SAME already-hardened container from the
+# last `make ansible-harden` (does not recreate it) and fails unless the
+# recap reports changed=0, failed=0 for ubi9_target.
+ansible-idempotency:
+	cd ansible && ../$(VENV)/bin/ansible-playbook playbooks/harden.yml | tee /tmp/ansible-idempotency.out
+	grep "ubi9_target" /tmp/ansible-idempotency.out | grep "changed=0" | grep "failed=0"
+
+ansible-provision:
+	cd ansible && ../$(VENV)/bin/ansible-playbook playbooks/provision-demo-env.yml
 
 # Phase 5 — CA-7 continuous monitoring. Same check the scheduled CI job
 # runs: exit 0 = clean, exit 2 = drift (see docs/continuous-monitoring.md).

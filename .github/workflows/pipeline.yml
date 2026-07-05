@@ -83,6 +83,25 @@ jobs:
       - name: Validate OSCAL component-definition against the schema
         run: python scripts/validate_oscal.py
 
+  ansible-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ansible-core ansible-lint
+      - working-directory: ansible
+        run: ansible-galaxy collection install -r requirements.yml
+      - name: ansible-lint (production profile)
+        working-directory: ansible
+        run: ansible-lint --profile production .
+      - name: ansible-playbook --syntax-check
+        working-directory: ansible
+        run: |
+          ansible-playbook --syntax-check playbooks/harden.yml
+          ansible-playbook --syntax-check playbooks/provision-demo-env.yml
+
   terraform:
     runs-on: ubuntu-latest
     services:

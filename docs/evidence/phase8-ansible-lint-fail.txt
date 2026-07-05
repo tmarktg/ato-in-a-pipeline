@@ -1,0 +1,26 @@
+$ ansible-lint --profile production ansible/roles/stig_hardening
+(deliberate violation on a throwaway branch: a bare `shell` task with no
+`changed_when`, added to ansible/roles/stig_hardening/tasks/main.yml,
+captured failing here, then reverted — never merged to main)
+
+WARNING  Listing 3 violation(s) that are fatal
+Read documentation for instructions on how to ignore specific rule violations.
+
+# Rule Violation Summary
+
+  1 command-instead-of-shell profile:basic tags:command-shell,idiom
+  1 no-changed-when profile:basic tags:command-shell,idempotency
+  1 fqcn profile:basic tags:formatting
+
+Failed: 3 failure(s), 0 warning(s) in 2 files processed of 2 encountered. Profile 'production' was required, but 'min' profile passed.
+command-instead-of-shell: Use shell only when shell functionality is required.
+ansible/roles/stig_hardening/tasks/main.yml:47 Task/Handler: DELIBERATE VIOLATION for phase8-ansible-lint-fail.txt evidence
+
+no-changed-when: Commands should not change things if nothing needs doing.
+ansible/roles/stig_hardening/tasks/main.yml:47 Task/Handler: DELIBERATE VIOLATION for phase8-ansible-lint-fail.txt evidence
+
+fqcn[action-core]: Use FQCN for builtin module actions (shell).
+ansible/roles/stig_hardening/tasks/main.yml:48:3 Use `ansible.builtin.shell` or `ansible.legacy.shell` instead.
+
+$ echo $?
+2

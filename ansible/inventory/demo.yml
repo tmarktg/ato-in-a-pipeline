@@ -1,0 +1,9 @@
+---
+all:
+  hosts:
+    localhost:
+      ansible_connection: local
+      ansible_python_interpreter: "{{ ansible_playbook_python }}"
+    ubi9_target:
+      ansible_connection: community.docker.docker
+      ansible_python_interpreter: /usr/bin/python3.12

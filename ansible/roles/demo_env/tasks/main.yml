@@ -1,0 +1,103 @@
+---
+# Installs the pinned toolchain `make demo` (README Quickstart) already
+# assumes is on PATH: kind, kubectl, kustomize, helm, and the Kyverno CLI.
+# Versions match what .github/workflows/pipeline.yml and .gitlab-ci.yml
+# already pin for kind/kustomize/kyverno-cli; kubectl and helm aren't
+# pinned anywhere else in this repo (CI resolves "latest stable" at
+# runtime), so this role pins the versions that were current when it was
+# written rather than reproducing that non-determinism.
+
+- name: Fail fast on anything other than Linux x86_64
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['system'] == 'Linux'
+      - ansible_facts['architecture'] in ['x86_64', 'amd64']
+    fail_msg: >-
+      demo_env only installs Linux x86_64 binaries (kind, kubectl,
+      kustomize, helm, Kyverno CLI). This host is
+      {{ ansible_facts['system'] }}/{{ ansible_facts['architecture'] }}.
+      Install the toolchain manually on this platform, or provision on a
+      Linux x86_64 host/runner instead.
+    success_msg: "Host is Linux x86_64 — proceeding with toolchain install."
+
+- name: Install the pinned toolchain
+  become: true
+  block:
+    - name: Check which toolchain binaries are already installed
+      ansible.builtin.stat:
+        path: "/usr/local/bin/{{ item }}"
+      loop:
+        - kind
+        - kubectl
+        - kustomize
+        - helm
+        - kyverno
+      register: _demo_env_existing
+
+    - name: Install kind v0.30.0
+      ansible.builtin.get_url:
+        url: https://kind.sigs.k8s.io/dl/v0.30.0/kind-linux-amd64
+        dest: /usr/local/bin/kind
+        mode: "0755"
+      when: not (_demo_env_existing.results | selectattr('item', 'equalto', 'kind') | first).stat.exists
+
+    - name: Install kubectl v1.36.2
+      ansible.builtin.get_url:
+        url: https://dl.k8s.io/release/v1.36.2/bin/linux/amd64/kubectl
+        dest: /usr/local/bin/kubectl
+        mode: "0755"
+      when: not (_demo_env_existing.results | selectattr('item', 'equalto', 'kubectl') | first).stat.exists
+
+    - name: Install kustomize 5.8.1
+      ansible.builtin.unarchive:
+        src: https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.8.1/kustomize_v5.8.1_linux_amd64.tar.gz
+        dest: /usr/local/bin
+        remote_src: true
+        mode: "0755"
+      when: not (_demo_env_existing.results | selectattr('item', 'equalto', 'kustomize') | first).stat.exists
+
+    - name: Install Kyverno CLI v1.18.1
+      when: not (_demo_env_existing.results | selectattr('item', 'equalto', 'kyverno') | first).stat.exists
+      block:
+        - name: Extract Kyverno CLI archive to a scratch directory
+          ansible.builtin.unarchive:
+            src: https://github.com/kyverno/kyverno/releases/download/v1.18.1/kyverno-cli_v1.18.1_linux_x86_64.tar.gz
+            dest: /tmp
+            remote_src: true
+            include:
+              - kyverno
+
+        - name: Move the kyverno binary into place
+          ansible.builtin.copy:
+            src: /tmp/kyverno
+            dest: /usr/local/bin/kyverno
+            mode: "0755"
+            remote_src: true
+
+        - name: Clean up the scratch copy
+          ansible.builtin.file:
+            path: /tmp/kyverno
+            state: absent
+
+    - name: Install Helm v4.2.2
+      when: not (_demo_env_existing.results | selectattr('item', 'equalto', 'helm') | first).stat.exists
+      block:
+        - name: Extract Helm archive to a scratch directory
+          ansible.builtin.unarchive:
+            src: https://get.helm.sh/helm-v4.2.2-linux-amd64.tar.gz
+            dest: /tmp
+            remote_src: true
+            include:
+              - linux-amd64/helm
+
+        - name: Move the helm binary into place
+          ansible.builtin.copy:
+            src: /tmp/linux-amd64/helm
+            dest: /usr/local/bin/helm
+            mode: "0755"
+            remote_src: true
+
+        - name: Clean up the scratch copy
+          ansible.builtin.file:
+            path: /tmp/linux-amd64
+            state: absent
