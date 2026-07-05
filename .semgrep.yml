@@ -1,0 +1,73 @@
+rules:
+  - id: sql-string-formatting
+    languages: [python]
+    severity: ERROR
+    message: >-
+      Possible SQL injection: query built with string formatting/concatenation
+      instead of parameterized SQLAlchemy constructs.
+    metadata:
+      category: security
+      cwe: "CWE-89: SQL Injection"
+      references:
+        - https://owasp.org/www-community/attacks/SQL_Injection
+    patterns:
+      - pattern-either:
+          - pattern: $DB.execute(f"...")
+          - pattern: $DB.execute("..." + $X)
+          - pattern: $DB.execute("...".format(...))
+          - pattern: $DB.execute("...%s..." % $X)
+
+  - id: dangerous-code-execution
+    languages: [python]
+    severity: ERROR
+    message: >-
+      Use of eval/exec/pickle.loads on data that may be attacker-controlled
+      is a remote code execution risk.
+    metadata:
+      category: security
+      cwe: "CWE-95: Eval Injection"
+    patterns:
+      - pattern-either:
+          - pattern: eval(...)
+          - pattern: exec(...)
+          - pattern: pickle.loads(...)
+
+  - id: subprocess-shell-true
+    languages: [python]
+    severity: ERROR
+    message: >-
+      subprocess call with shell=True risks shell injection if any argument
+      is attacker-influenced.
+    metadata:
+      category: security
+      cwe: "CWE-78: OS Command Injection"
+    patterns:
+      - pattern-either:
+          - pattern: subprocess.$FUNC(..., shell=True, ...)
+          - pattern: os.system(...)
+
+  - id: hardcoded-secret-assignment
+    languages: [python]
+    severity: ERROR
+    message: >-
+      Hardcoded credential-looking assignment. Secrets must come from
+      environment configuration, not source.
+    metadata:
+      category: security
+      cwe: "CWE-798: Use of Hard-coded Credentials"
+    patterns:
+      - pattern-either:
+          - pattern: $VAR = "..."
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: (?i)^(password|passwd|secret|api_key|apikey|token)$
+
+  - id: fastapi-debug-enabled
+    languages: [python]
+    severity: WARNING
+    message: >-
+      FastAPI app instantiated with debug=True; must not ship to production
+      (leaks stack traces).
+    metadata:
+      category: security
+    pattern: FastAPI(..., debug=True, ...)

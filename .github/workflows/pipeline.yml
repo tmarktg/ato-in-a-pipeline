@@ -1,0 +1,183 @@
+name: pipeline
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository }}
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check app
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+      - run: pytest
+
+  sast:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install semgrep
+      - run: semgrep scan --config .semgrep.yml --severity ERROR --error --json --output semgrep-report.json
+      - run: semgrep scan --config .semgrep.yml --severity ERROR --severity WARNING
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: semgrep-report
+          path: semgrep-report.json
+          retention-days: 30
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 50
+      - name: Install gitleaks
+        run: |
+          curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz | tar -xz gitleaks
+          sudo mv gitleaks /usr/local/bin/
+      - run: gitleaks detect --source . -c .gitleaks.toml --exit-code 1 --report-format json --report-path gitleaks-report.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gitleaks-report
+          path: gitleaks-report.json
+          retention-days: 30
+
+  build:
+    runs-on: ubuntu-latest
+    needs: [lint, test, sast, secrets]
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push
+        id: push
+        run: |
+          docker build -t "$IMAGE_NAME:${{ github.sha }}" .
+          docker push "$IMAGE_NAME:${{ github.sha }}"
+          digest=$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE_NAME:${{ github.sha }}")
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
+  scan:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # Unfixed CRITICALs (no vendor patch available) are tracked, not
+      # blocking — see docs/adr/0002-trivy-unfixed-cve-policy.md.
+      - name: Trivy CRITICAL gate
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ needs.build.outputs.digest }}
+          exit-code: "1"
+          severity: CRITICAL
+          ignore-unfixed: true
+      - name: Trivy HIGH report (non-blocking)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ needs.build.outputs.digest }}
+          exit-code: "0"
+          severity: HIGH
+          format: table
+          output: trivy-high-report.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-high-report
+          path: trivy-high-report.txt
+          retention-days: 30
+
+  sbom:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: anchore/sbom-action@v0
+        with:
+          image: ${{ needs.build.outputs.digest }}
+          format: spdx-json
+          output-file: sbom.spdx.json
+      - uses: anchore/sbom-action@v0
+        with:
+          image: ${{ needs.build.outputs.digest }}
+          format: cyclonedx-json
+          output-file: sbom.cdx.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: |
+            sbom.spdx.json
+            sbom.cdx.json
+          retention-days: 30
+
+  sign:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: sigstore/cosign-installer@v3
+      - name: Sign and verify image digest
+        env:
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+        run: |
+          echo "${{ secrets.COSIGN_PRIVATE_KEY }}" > cosign.key
+          cosign sign --key cosign.key --yes "${{ needs.build.outputs.digest }}"
+          cosign verify --key cosign.pub "${{ needs.build.outputs.digest }}"
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: [build, scan, sbom, sign]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: imjasonh/setup-crane@v0.4
+      - run: crane tag "${{ needs.build.outputs.digest }}" stable

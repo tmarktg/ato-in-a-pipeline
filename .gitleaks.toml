@@ -1,0 +1,17 @@
+title = "gitleaks config for ato-in-a-pipeline"
+
+# Extend gitleaks' built-in rule set rather than replacing it.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Path excludes for vendored/build artifacts; regexes stays empty until a reviewed false positive is triaged"
+paths = [
+  '''\.venv/.*''',
+  '''\.git/.*''',
+  '''__pycache__/.*''',
+]
+# No reviewed false positives yet. When gitleaks flags a confirmed benign
+# match (e.g. a test fixture that only looks like a credential), add a
+# targeted regex here with a comment linking to the finding it suppresses.
+regexes = []

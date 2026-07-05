@@ -1,0 +1,13 @@
+.git
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+*.db
+docs
+terraform
+k8s
+policy
+policy-tests
+compliance

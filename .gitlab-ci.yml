@@ -1,0 +1,172 @@
+stages:
+  - lint
+  - test
+  - sast
+  - secrets
+  - build
+  - scan
+  - sbom
+  - sign
+  - publish
+
+variables:
+  GIT_DEPTH: "50"
+  IMAGE_TAG: "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
+  DOCKER_HOST: "tcp://docker:2376"
+  DOCKER_TLS_CERTDIR: "/certs"
+  DOCKER_TLS_VERIFY: "1"
+  DOCKER_CERT_PATH: "/certs/client"
+
+# Writes a docker-compatible auth file so registry-native tools (trivy,
+# syft, cosign, crane) can talk to $CI_REGISTRY without needing a Docker
+# daemon of their own.
+.registry_auth:
+  before_script:
+    - mkdir -p "${DOCKER_CONFIG:-$HOME/.docker}"
+    - |
+      cat > "${DOCKER_CONFIG:-$HOME/.docker}/config.json" <<EOF
+      {"auths":{"$CI_REGISTRY":{"auth":"$(printf '%s:%s' "$CI_REGISTRY_USER" "$CI_REGISTRY_PASSWORD" | base64 | tr -d '\n')"}}}
+      EOF
+
+.pip_cache:
+  cache:
+    key:
+      files:
+        - requirements-dev.txt
+    paths:
+      - .cache/pip
+
+lint:
+  stage: lint
+  image: python:3.12-slim-bookworm
+  extends: .pip_cache
+  variables:
+    PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  before_script:
+    - pip install -r requirements-dev.txt
+  script:
+    - ruff check app
+
+test:
+  stage: test
+  image: python:3.12-slim-bookworm
+  extends: .pip_cache
+  variables:
+    PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  before_script:
+    - pip install -r requirements-dev.txt
+  script:
+    - pytest
+  coverage: '/TOTAL.+ (\d+%)/'
+
+sast:
+  stage: sast
+  image:
+    name: semgrep/semgrep:latest
+    entrypoint: [""]
+  script:
+    - semgrep scan --config .semgrep.yml --severity ERROR --error --json --output semgrep-report.json
+    - semgrep scan --config .semgrep.yml --severity ERROR --severity WARNING
+  artifacts:
+    when: always
+    paths:
+      - semgrep-report.json
+    expire_in: 30 days
+
+secrets:
+  stage: secrets
+  image:
+    name: zricethezav/gitleaks:latest
+    entrypoint: [""]
+  script:
+    - gitleaks detect --source . -c .gitleaks.toml --exit-code 1 --report-format json --report-path gitleaks-report.json
+  artifacts:
+    when: always
+    paths:
+      - gitleaks-report.json
+    expire_in: 30 days
+
+build:
+  stage: build
+  image: docker:27
+  services:
+    - docker:27-dind
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+  script:
+    - docker build -t "$IMAGE_TAG" .
+    - docker push "$IMAGE_TAG"
+    - echo "IMAGE_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE_TAG")" >> build.env
+  artifacts:
+    reports:
+      dotenv: build.env
+
+scan:
+  stage: scan
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: [""]
+  extends: .registry_auth
+  needs:
+    - job: build
+      artifacts: true
+  script:
+    # Unfixed CRITICALs (no vendor patch available) are tracked, not
+    # blocking — see docs/adr/0002-trivy-unfixed-cve-policy.md.
+    - trivy image --exit-code 1 --severity CRITICAL --ignore-unfixed "$IMAGE_DIGEST"
+    - trivy image --exit-code 0 --severity HIGH --format table --output trivy-high-report.txt "$IMAGE_DIGEST"
+  artifacts:
+    when: always
+    paths:
+      - trivy-high-report.txt
+    expire_in: 30 days
+
+sbom:
+  stage: sbom
+  image:
+    name: anchore/syft:latest
+    entrypoint: [""]
+  extends: .registry_auth
+  needs:
+    - job: build
+      artifacts: true
+  script:
+    - syft "$IMAGE_DIGEST" -o spdx-json=sbom.spdx.json -o cyclonedx-json=sbom.cdx.json
+  artifacts:
+    paths:
+      - sbom.spdx.json
+      - sbom.cdx.json
+    expire_in: 30 days
+
+sign:
+  stage: sign
+  image:
+    name: gcr.io/projectsigstore/cosign:latest
+    entrypoint: [""]
+  extends: .registry_auth
+  needs:
+    - job: build
+      artifacts: true
+  variables:
+    COSIGN_YES: "true"
+  script:
+    - echo "$COSIGN_PRIVATE_KEY" > cosign.key
+    - cosign sign --key cosign.key "$IMAGE_DIGEST"
+    - cosign verify --key cosign.pub "$IMAGE_DIGEST"
+
+publish:
+  stage: publish
+  image:
+    name: gcr.io/go-containerregistry/crane:debug
+    entrypoint: [""]
+  extends: .registry_auth
+  needs:
+    - job: build
+      artifacts: true
+    - scan
+    - sbom
+    - sign
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  script:
+    - crane tag "$IMAGE_DIGEST" stable

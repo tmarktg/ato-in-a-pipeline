@@ -1,0 +1,13 @@
+[tool.pytest.ini_options]
+addopts = "--cov=app --cov-report=term-missing --cov-fail-under=80"
+testpaths = ["app/tests"]
+
+[tool.coverage.run]
+omit = ["app/tests/*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
