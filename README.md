@@ -16,7 +16,7 @@ non-goals).
 - [x] **Phase 2** — Hardened base image (UBI9) + OpenSCAP DISA STIG remediation
 - [x] **Phase 3** — Terraform/LocalStack infra (VPC/network, S3, DynamoDB)
 - [x] **Phase 4** — Kubernetes deploy with Kyverno policy enforcement
-- [ ] Phase 5 — Continuous monitoring (drift detection)
+- [x] **Phase 5** — Continuous monitoring (drift detection)
 - [ ] Phase 6 — NIST 800-53 compliance matrix
 
 ## Architecture
@@ -38,7 +38,8 @@ flowchart LR
         Kyverno["Kyverno admission policy\n(non-root, signed images,\napproved registry, no :latest,\nresource limits)"]
     end
 
-    K8s --> Monitor["Drift detection\n(Phase 5, planned)"]
+    Terraform -.->|"scheduled drift check\n(Phase 5)"| Monitor["terraform plan -detailed-exitcode\n(CI cron)"]
+    Monitor -.->|"linked, not vendored"| Agent["agentic-ai-devops\nLangGraph detect/classify/remediate agent"]
     CI -.->|"evidence"| Docs[docs/evidence/]
     Docs -.-> Matrix["NIST 800-53 compliance matrix\n(Phase 6, planned)"]
 ```
@@ -59,6 +60,8 @@ make localstack-down  # tear down LocalStack
 
 make demo       # kind up + Kyverno install + policy tests + deploy the real signed image
 make kind-down  # tear the demo cluster down
+
+make drift-check  # terraform plan -detailed-exitcode against LocalStack (exit 2 = drift)
 ```
 
 `make demo` requires `kind`, `kubectl`, `kustomize`, `helm`, and the
@@ -173,6 +176,30 @@ deploy of that run's own signed image digest into the `dev` overlay
 (GitLab's mirror deploys the published GHCR `:stable` image instead, since
 that pipeline's own build lands in GitLab's registry, not GHCR — see the
 `k8s-policy` job comments in `.gitlab-ci.yml`).
+
+## Continuous monitoring (Phase 5)
+
+A scheduled CI job (`drift-check` — cron in GitHub Actions, a GitLab
+Pipeline Schedule) runs `terraform plan -detailed-exitcode` against this
+repo's own Phase 3 LocalStack infra daily: exit `0` = clean, exit `2` =
+drift, plan output uploaded as an artifact either way. Free, no LLM calls,
+no extra services.
+
+The deeper detect→classify→remediate story is
+[**agentic-ai-devops**](https://github.com/tmarktg/agentic-ai-devops) — an
+existing LangGraph ReAct agent (Claude + pgvector RAG + Postgres
+checkpointer), linked here rather than vendored per `Project.md`. It can be
+pointed at this repo's own `terraform/` directory to classify drift
+severity and gate remediation behind human approval for anything
+high-severity or incident-correlated. Full writeup, including why it isn't
+wired into the scheduled CI job (real API cost, Postgres+pgvector
+dependency): [`docs/continuous-monitoring.md`](docs/continuous-monitoring.md).
+
+**Evidence** — a manually induced out-of-band change (opening SSH ingress
+directly against LocalStack, bypassing Terraform) caught by the same
+`terraform plan -detailed-exitcode` the scheduled job runs:
+[`phase5-drift-detected.txt`](docs/evidence/phase5-drift-detected.txt)
+(exit code 2).
 
 ## Compliance matrix
 

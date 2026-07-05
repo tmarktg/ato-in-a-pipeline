@@ -10,6 +10,7 @@ stages:
   - sign
   - k8s-policy
   - publish
+  - drift-check
 
 variables:
   GIT_DEPTH: "50"
@@ -40,6 +41,8 @@ variables:
 
 lint:
   stage: lint
+  except:
+    - schedules
   image: python:3.12-slim-bookworm
   extends: .pip_cache
   variables:
@@ -51,6 +54,8 @@ lint:
 
 test:
   stage: test
+  except:
+    - schedules
   image: python:3.12-slim-bookworm
   extends: .pip_cache
   variables:
@@ -63,6 +68,8 @@ test:
 
 sast:
   stage: sast
+  except:
+    - schedules
   image:
     name: semgrep/semgrep:latest
     entrypoint: [""]
@@ -77,6 +84,8 @@ sast:
 
 secrets:
   stage: secrets
+  except:
+    - schedules
   image:
     name: zricethezav/gitleaks:latest
     entrypoint: [""]
@@ -90,6 +99,8 @@ secrets:
 
 terraform-fmt:
   stage: terraform
+  except:
+    - schedules
   image: hashicorp/terraform:1.15
   script:
     - cd terraform
@@ -97,6 +108,8 @@ terraform-fmt:
 
 terraform-validate:
   stage: terraform
+  except:
+    - schedules
   image: hashicorp/terraform:1.15
   script:
     - cd terraform
@@ -105,6 +118,8 @@ terraform-validate:
 
 terraform-plan:
   stage: terraform
+  except:
+    - schedules
   image: hashicorp/terraform:1.15
   services:
     - name: localstack/localstack:3.8
@@ -126,6 +141,8 @@ terraform-plan:
 
 build:
   stage: build
+  except:
+    - schedules
   image: docker:27
   services:
     - docker:27-dind
@@ -141,6 +158,8 @@ build:
 
 scan:
   stage: scan
+  except:
+    - schedules
   image:
     name: aquasec/trivy:latest
     entrypoint: [""]
@@ -161,6 +180,8 @@ scan:
 
 sbom:
   stage: sbom
+  except:
+    - schedules
   image:
     name: anchore/syft:latest
     entrypoint: [""]
@@ -178,6 +199,8 @@ sbom:
 
 sign:
   stage: sign
+  except:
+    - schedules
   image:
     name: gcr.io/projectsigstore/cosign:latest
     entrypoint: [""]
@@ -194,6 +217,8 @@ sign:
 
 k8s-policy:
   stage: k8s-policy
+  except:
+    - schedules
   image: docker:27
   services:
     - docker:27-dind
@@ -245,6 +270,45 @@ publish:
     - sbom
     - sign
   rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: never
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   script:
     - crane tag "$IMAGE_DIGEST" stable
+
+drift-check:
+  stage: drift-check
+  only:
+    - schedules
+  image: hashicorp/terraform:1.15
+  services:
+    - name: localstack/localstack:3.8
+      alias: localstack
+      variables:
+        SERVICES: "ec2,sts,iam,s3,dynamodb"
+  variables:
+    TF_VAR_localstack_endpoint: "http://localstack:4566"
+  before_script:
+    - until wget -qO- http://localstack:4566/_localstack/health | grep -q '"s3"'; do sleep 2; done
+  script:
+    - cd terraform
+    - terraform init
+    - terraform apply -auto-approve
+    - |
+      set +e
+      terraform plan -detailed-exitcode -out=driftplan.out > plan-output.txt 2>&1
+      exit_code=$?
+      cat plan-output.txt
+      if [ "$exit_code" -eq 2 ]; then
+        echo "Drift detected against LocalStack state — see the drift-plan artifact."
+        exit 1
+      elif [ "$exit_code" -eq 1 ]; then
+        echo "terraform plan errored."
+        exit 1
+      fi
+  artifacts:
+    when: always
+    paths:
+      - terraform/plan-output.txt
+      - terraform/driftplan.out
+    expire_in: 30 days

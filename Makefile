@@ -6,7 +6,7 @@ PYTHON ?= $(VENV)/bin/python
 KIND_CLUSTER ?= ato-demo
 
 .PHONY: venv run test lint image scan clean localstack-up localstack-down tf-plan tf-apply tf-destroy \
-	kind-up kind-down policy-test deploy-dev demo
+	kind-up kind-down policy-test deploy-dev demo drift-check
 
 venv:
 	python3.12 -m venv $(VENV)
@@ -49,6 +49,11 @@ tf-apply:
 
 tf-destroy:
 	cd terraform && terraform destroy
+
+# Phase 5 — CA-7 continuous monitoring. Same check the scheduled CI job
+# runs: exit 0 = clean, exit 2 = drift (see docs/continuous-monitoring.md).
+drift-check:
+	cd terraform && terraform init && terraform plan -detailed-exitcode
 
 # Phase 4 — kind cluster + Kyverno policy enforcement. Use k3s instead of
 # kind here if you already have it running locally (same manifests/policies

@@ -1,0 +1,58 @@
+name: drift-check
+
+# CA-7 continuous monitoring: a free, mechanical drift check that runs on a
+# schedule independent of the main pipeline. See docs/continuous-monitoring.md
+# for the deeper detect/classify/remediate story (a linked, separate agent).
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  drift-check:
+    runs-on: ubuntu-latest
+    services:
+      localstack:
+        image: localstack/localstack:3.8
+        ports:
+          - 4566:4566
+        env:
+          SERVICES: ec2,sts,iam,s3,dynamodb
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.15.7"
+      - name: Wait for LocalStack
+        run: |
+          until curl -s http://localhost:4566/_localstack/health | grep -q '"s3"'; do sleep 2; done
+      - name: Establish baseline
+        working-directory: terraform
+        env:
+          TF_VAR_localstack_endpoint: "http://localhost:4566"
+        run: |
+          terraform init
+          terraform apply -auto-approve
+      - name: Check for drift
+        id: plan
+        working-directory: terraform
+        env:
+          TF_VAR_localstack_endpoint: "http://localhost:4566"
+        run: |
+          set +e
+          terraform plan -detailed-exitcode -out=driftplan.out > plan-output.txt 2>&1
+          echo "exitcode=$?" >> "$GITHUB_OUTPUT"
+          cat plan-output.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: drift-plan
+          path: |
+            terraform/plan-output.txt
+            terraform/driftplan.out
+          retention-days: 30
+      - name: Fail if drift detected
+        if: steps.plan.outputs.exitcode == '2'
+        run: |
+          echo "::error::Drift detected against LocalStack state — see the drift-plan artifact for the full plan output."
+          exit 1
