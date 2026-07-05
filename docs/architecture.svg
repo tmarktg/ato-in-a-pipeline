@@ -25,8 +25,9 @@
   <text x="405" y="112" text-anchor="middle" fill="#93c5fd" font-size="13" font-weight="600">GitLab CI — security gates (fail = pipeline blocked)</text>
 
   <rect x="205" y="125" width="90" height="55" rx="6" fill="#1e293b" stroke="#334155"/>
-  <text x="250" y="148" text-anchor="middle" fill="#e2e8f0" font-size="11" font-weight="600">SAST</text>
-  <text x="250" y="164" text-anchor="middle" fill="#94a3b8" font-size="10">Semgrep</text>
+  <text x="250" y="145" text-anchor="middle" fill="#e2e8f0" font-size="11" font-weight="600">SAST</text>
+  <text x="250" y="161" text-anchor="middle" fill="#94a3b8" font-size="10">Semgrep</text>
+  <text x="250" y="174" text-anchor="middle" fill="#94a3b8" font-size="10">ansible-lint</text>
 
   <rect x="305" y="125" width="90" height="55" rx="6" fill="#1e293b" stroke="#334155"/>
   <text x="350" y="148" text-anchor="middle" fill="#e2e8f0" font-size="11" font-weight="600">Secrets</text>
@@ -70,27 +71,38 @@
   <line x1="730" y1="370" x2="730" y2="408" stroke="#7dd3fc" stroke-width="2" marker-end="url(#arrow)"/>
 
   <!-- Terraform / drift -->
-  <rect x="30" y="250" width="250" height="120" rx="10" fill="#0f1a2e" stroke="#c2833a" stroke-width="1.5"/>
+  <rect x="30" y="250" width="250" height="110" rx="10" fill="#0f1a2e" stroke="#c2833a" stroke-width="1.5"/>
   <text x="155" y="272" text-anchor="middle" fill="#fcd34d" font-size="13" font-weight="600">Infrastructure as Code</text>
-  <text x="155" y="296" text-anchor="middle" fill="#cbd5e1" font-size="11">Terraform → LocalStack</text>
-  <text x="155" y="316" text-anchor="middle" fill="#cbd5e1" font-size="11">fmt · validate · plan in CI</text>
-  <text x="155" y="342" text-anchor="middle" fill="#fcd34d" font-size="11" font-weight="600">Drift detection agent (CA-7)</text>
-  <text x="155" y="358" text-anchor="middle" fill="#94a3b8" font-size="10">scheduled continuous monitoring</text>
+  <text x="155" y="294" text-anchor="middle" fill="#cbd5e1" font-size="11">Terraform → LocalStack</text>
+  <text x="155" y="312" text-anchor="middle" fill="#cbd5e1" font-size="11">fmt · validate · plan in CI</text>
+  <text x="155" y="334" text-anchor="middle" fill="#fcd34d" font-size="11" font-weight="600">Drift detection agent (CA-7)</text>
+  <text x="155" y="350" text-anchor="middle" fill="#94a3b8" font-size="10">scheduled continuous monitoring</text>
+
+  <!-- Ansible configuration management -->
+  <rect x="30" y="380" width="250" height="120" rx="10" fill="#0f1a2e" stroke="#e11d48" stroke-width="1.5"/>
+  <text x="155" y="402" text-anchor="middle" fill="#fda4af" font-size="13" font-weight="600">Configuration Management</text>
+  <text x="155" y="424" text-anchor="middle" fill="#cbd5e1" font-size="11">Ansible STIG hardening roles</text>
+  <text x="155" y="442" text-anchor="middle" fill="#cbd5e1" font-size="11">UBI9 target · docker connection</text>
+  <text x="155" y="460" text-anchor="middle" fill="#cbd5e1" font-size="11">demo-env provisioning</text>
+  <text x="155" y="482" text-anchor="middle" fill="#fda4af" font-size="10" font-weight="600">idempotent — 2nd run changed=0</text>
 
   <!-- Compliance matrix -->
   <rect x="320" y="250" width="250" height="250" rx="10" fill="#0f1a2e" stroke="#0891b2" stroke-width="1.5"/>
   <text x="445" y="274" text-anchor="middle" fill="#67e8f9" font-size="13" font-weight="600">NIST 800-53 Mapping</text>
-  <text x="335" y="300" fill="#cbd5e1" font-size="11">RA-5  → Trivy vulnerability scan</text>
-  <text x="335" y="322" fill="#cbd5e1" font-size="11">SI-7  → Cosign sign + verify</text>
-  <text x="335" y="344" fill="#cbd5e1" font-size="11">CM-7 → Kyverno least-function</text>
-  <text x="335" y="366" fill="#cbd5e1" font-size="11">CM-2 → Terraform baseline</text>
-  <text x="335" y="388" fill="#cbd5e1" font-size="11">SA-11 → pytest + Semgrep</text>
-  <text x="335" y="410" fill="#cbd5e1" font-size="11">IA-5  → Gitleaks secrets gate</text>
-  <text x="335" y="432" fill="#cbd5e1" font-size="11">CA-7 → drift detection job</text>
-  <text x="445" y="470" text-anchor="middle" fill="#64748b" font-size="10">every control links to evidence in-repo</text>
+  <text x="335" y="298" fill="#cbd5e1" font-size="11">RA-5  → Trivy vulnerability scan</text>
+  <text x="335" y="318" fill="#cbd5e1" font-size="11">SI-7  → Cosign sign + verify</text>
+  <text x="335" y="338" fill="#cbd5e1" font-size="11">CM-7 → Kyverno least-function</text>
+  <text x="335" y="358" fill="#cbd5e1" font-size="11">CM-2 → Terraform baseline</text>
+  <text x="335" y="378" fill="#cbd5e1" font-size="11">CM-6 → Ansible STIG hardening</text>
+  <text x="335" y="398" fill="#cbd5e1" font-size="11">SA-11 → pytest + Semgrep</text>
+  <text x="335" y="418" fill="#cbd5e1" font-size="11">IA-5  → Gitleaks secrets gate</text>
+  <text x="335" y="438" fill="#cbd5e1" font-size="11">CA-7 → drift detection job</text>
+  <text x="445" y="466" text-anchor="middle" fill="#64748b" font-size="10">controls.yaml → matrix + OSCAL, CI-validated</text>
+  <text x="445" y="484" text-anchor="middle" fill="#64748b" font-size="10">every control links to evidence in-repo</text>
 
   <!-- connecting lines to compliance -->
   <line x1="280" y1="310" x2="318" y2="310" stroke="#0891b2" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <line x1="280" y1="440" x2="318" y2="440" stroke="#0891b2" stroke-width="1.5" stroke-dasharray="4 3"/>
   <line x1="598" y1="310" x2="572" y2="310" stroke="#0891b2" stroke-width="1.5" stroke-dasharray="4 3"/>
   <line x1="445" y1="248" x2="445" y2="202" stroke="#0891b2" stroke-width="1.5" stroke-dasharray="4 3"/>
 </svg>
