@@ -7,7 +7,8 @@ SBOMs, and deploys through Kyverno-enforced Kubernetes policy. The pipeline
 is the product; the app exists to be shipped by it.
 Everything runs locally or in free CI tiers — no cloud spend, and this is
 not a real ATO (see [`Project.md`](Project.md) for the full spec and
-non-goals).
+non-goals). Every control below is mapped to real, working evidence in the
+[**NIST 800-53 compliance matrix**](docs/compliance-matrix.md).
 
 ## Status
 
@@ -17,7 +18,7 @@ non-goals).
 - [x] **Phase 3** — Terraform/LocalStack infra (VPC/network, S3, DynamoDB)
 - [x] **Phase 4** — Kubernetes deploy with Kyverno policy enforcement
 - [x] **Phase 5** — Continuous monitoring (drift detection)
-- [ ] Phase 6 — NIST 800-53 compliance matrix
+- [x] **Phase 6** — NIST 800-53 compliance matrix
 
 ## Architecture
 
@@ -41,7 +42,7 @@ flowchart LR
     Terraform -.->|"scheduled drift check\n(Phase 5)"| Monitor["terraform plan -detailed-exitcode\n(CI cron)"]
     Monitor -.->|"linked, not vendored"| Agent["agentic-ai-devops\nLangGraph detect/classify/remediate agent"]
     CI -.->|"evidence"| Docs[docs/evidence/]
-    Docs -.-> Matrix["NIST 800-53 compliance matrix\n(Phase 6, planned)"]
+    Docs -.-> Matrix["NIST 800-53 compliance matrix\n(Phase 6)"]
 ```
 
 ## Quickstart
@@ -201,7 +202,11 @@ directly against LocalStack, bypassing Terraform) caught by the same
 [`phase5-drift-detected.txt`](docs/evidence/phase5-drift-detected.txt)
 (exit code 2).
 
-## Compliance matrix
+## Compliance matrix (Phase 6)
 
-Coming in Phase 6 — will map every control implemented above to a NIST
-800-53 rev5 control ID with links to the evidence that backs it.
+[`docs/compliance-matrix.md`](docs/compliance-matrix.md) maps 15 NIST
+800-53 rev5 controls across the AC, AU, CA, CM, IA, RA, SA, SC, and SI
+families to the file, pipeline stage, or evidence artifact that actually
+backs each one — no aspirational rows. It also lists what's deliberately
+*not* mapped (account management, backups, incident response) because this
+repo genuinely doesn't implement them, rather than padding the table.
