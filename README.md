@@ -24,7 +24,7 @@ non-goals). Every control below is mapped to real, working evidence in the
 
 ## Architecture
 
-![Architecture diagram: commit flows through GitLab CI security gates (SAST, Secrets, CVE Scan, SBOM + Sign) to a registry, then through Kyverno admission control into Kubernetes; Terraform/LocalStack and a drift-detection agent feed continuous monitoring; every stage maps into the NIST 800-53 compliance matrix.](docs/architecture.svg)
+![Architecture diagram: commit flows through GitLab CI security gates (SAST + ansible-lint, Secrets, CVE Scan, SBOM + Sign) to a registry, then through Kyverno admission control into Kubernetes; Terraform/LocalStack and a drift-detection agent feed continuous monitoring, Ansible provides idempotent STIG hardening and demo-env provisioning; every stage maps into the NIST 800-53 compliance matrix.](docs/architecture.svg)
 
 ## Quickstart
 
