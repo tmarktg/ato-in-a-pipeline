@@ -1,0 +1,96 @@
+<svg viewBox="0 0 960 540" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#7dd3fc"/>
+    </marker>
+    <marker id="arrowRed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#f87171"/>
+    </marker>
+  </defs>
+
+  <!-- background -->
+  <rect x="0" y="0" width="960" height="540" rx="12" fill="#0b1220"/>
+
+  <!-- title -->
+  <text x="480" y="40" text-anchor="middle" fill="#e2e8f0" font-size="22" font-weight="600">Secure Software Delivery Reference Pipeline</text>
+  <text x="480" y="62" text-anchor="middle" fill="#64748b" font-size="13">commit → hardened cluster, through hard-blocking security gates</text>
+
+  <!-- Dev commit -->
+  <rect x="30" y="110" width="120" height="60" rx="8" fill="#1e293b" stroke="#334155"/>
+  <text x="90" y="136" text-anchor="middle" fill="#e2e8f0" font-size="13" font-weight="600">git push</text>
+  <text x="90" y="154" text-anchor="middle" fill="#94a3b8" font-size="11">developer commit</text>
+
+  <!-- CI pipeline container -->
+  <rect x="190" y="90" width="430" height="110" rx="10" fill="#0f1a2e" stroke="#1d4ed8" stroke-width="1.5"/>
+  <text x="405" y="112" text-anchor="middle" fill="#93c5fd" font-size="13" font-weight="600">GitLab CI — security gates (fail = pipeline blocked)</text>
+
+  <rect x="205" y="125" width="90" height="55" rx="6" fill="#1e293b" stroke="#334155"/>
+  <text x="250" y="148" text-anchor="middle" fill="#e2e8f0" font-size="11" font-weight="600">SAST</text>
+  <text x="250" y="164" text-anchor="middle" fill="#94a3b8" font-size="10">Semgrep</text>
+
+  <rect x="305" y="125" width="90" height="55" rx="6" fill="#1e293b" stroke="#334155"/>
+  <text x="350" y="148" text-anchor="middle" fill="#e2e8f0" font-size="11" font-weight="600">Secrets</text>
+  <text x="350" y="164" text-anchor="middle" fill="#94a3b8" font-size="10">Gitleaks</text>
+
+  <rect x="405" y="125" width="90" height="55" rx="6" fill="#1e293b" stroke="#334155"/>
+  <text x="450" y="148" text-anchor="middle" fill="#e2e8f0" font-size="11" font-weight="600">CVE Scan</text>
+  <text x="450" y="164" text-anchor="middle" fill="#94a3b8" font-size="10">Trivy</text>
+
+  <rect x="505" y="125" width="100" height="55" rx="6" fill="#1e293b" stroke="#334155"/>
+  <text x="555" y="145" text-anchor="middle" fill="#e2e8f0" font-size="11" font-weight="600">SBOM + Sign</text>
+  <text x="555" y="161" text-anchor="middle" fill="#94a3b8" font-size="10">Syft · Cosign</text>
+  <text x="555" y="174" text-anchor="middle" fill="#94a3b8" font-size="10">SPDX / CycloneDX</text>
+
+  <!-- Registry -->
+  <rect x="670" y="110" width="120" height="60" rx="8" fill="#1e293b" stroke="#334155"/>
+  <text x="730" y="136" text-anchor="middle" fill="#e2e8f0" font-size="13" font-weight="600">Registry</text>
+  <text x="730" y="154" text-anchor="middle" fill="#94a3b8" font-size="11">signed images only</text>
+
+  <!-- arrows top row -->
+  <line x1="150" y1="140" x2="188" y2="140" stroke="#7dd3fc" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="620" y1="140" x2="668" y2="140" stroke="#7dd3fc" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- arrow registry down to admission -->
+  <line x1="730" y1="170" x2="730" y2="248" stroke="#7dd3fc" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Kyverno admission -->
+  <rect x="600" y="250" width="260" height="120" rx="10" fill="#0f1a2e" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="730" y="272" text-anchor="middle" fill="#c4b5fd" font-size="13" font-weight="600">Kyverno Admission Control</text>
+  <text x="730" y="294" text-anchor="middle" fill="#cbd5e1" font-size="11">✓ signature verified (Cosign)</text>
+  <text x="730" y="312" text-anchor="middle" fill="#cbd5e1" font-size="11">✓ non-root · resource limits</text>
+  <text x="730" y="330" text-anchor="middle" fill="#cbd5e1" font-size="11">✓ approved registry · no :latest</text>
+  <text x="730" y="356" text-anchor="middle" fill="#f87171" font-size="11" font-weight="600">✗ unsigned image → denied</text>
+
+  <!-- Cluster -->
+  <rect x="600" y="410" width="260" height="90" rx="10" fill="#0f2e1d" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="730" y="436" text-anchor="middle" fill="#86efac" font-size="13" font-weight="600">Kubernetes (kind / k3s)</text>
+  <text x="730" y="458" text-anchor="middle" fill="#cbd5e1" font-size="11">Readiness Board app — FastAPI</text>
+  <text x="730" y="476" text-anchor="middle" fill="#94a3b8" font-size="10">non-root · read-only fs · /metrics</text>
+
+  <line x1="730" y1="370" x2="730" y2="408" stroke="#7dd3fc" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Terraform / drift -->
+  <rect x="30" y="250" width="250" height="120" rx="10" fill="#0f1a2e" stroke="#c2833a" stroke-width="1.5"/>
+  <text x="155" y="272" text-anchor="middle" fill="#fcd34d" font-size="13" font-weight="600">Infrastructure as Code</text>
+  <text x="155" y="296" text-anchor="middle" fill="#cbd5e1" font-size="11">Terraform → LocalStack</text>
+  <text x="155" y="316" text-anchor="middle" fill="#cbd5e1" font-size="11">fmt · validate · plan in CI</text>
+  <text x="155" y="342" text-anchor="middle" fill="#fcd34d" font-size="11" font-weight="600">Drift detection agent (CA-7)</text>
+  <text x="155" y="358" text-anchor="middle" fill="#94a3b8" font-size="10">scheduled continuous monitoring</text>
+
+  <!-- Compliance matrix -->
+  <rect x="320" y="250" width="250" height="250" rx="10" fill="#0f1a2e" stroke="#0891b2" stroke-width="1.5"/>
+  <text x="445" y="274" text-anchor="middle" fill="#67e8f9" font-size="13" font-weight="600">NIST 800-53 Mapping</text>
+  <text x="335" y="300" fill="#cbd5e1" font-size="11">RA-5  → Trivy vulnerability scan</text>
+  <text x="335" y="322" fill="#cbd5e1" font-size="11">SI-7  → Cosign sign + verify</text>
+  <text x="335" y="344" fill="#cbd5e1" font-size="11">CM-7 → Kyverno least-function</text>
+  <text x="335" y="366" fill="#cbd5e1" font-size="11">CM-2 → Terraform baseline</text>
+  <text x="335" y="388" fill="#cbd5e1" font-size="11">SA-11 → pytest + Semgrep</text>
+  <text x="335" y="410" fill="#cbd5e1" font-size="11">IA-5  → Gitleaks secrets gate</text>
+  <text x="335" y="432" fill="#cbd5e1" font-size="11">CA-7 → drift detection job</text>
+  <text x="445" y="470" text-anchor="middle" fill="#64748b" font-size="10">every control links to evidence in-repo</text>
+
+  <!-- connecting lines to compliance -->
+  <line x1="280" y1="310" x2="318" y2="310" stroke="#0891b2" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <line x1="598" y1="310" x2="572" y2="310" stroke="#0891b2" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <line x1="445" y1="248" x2="445" y2="202" stroke="#0891b2" stroke-width="1.5" stroke-dasharray="4 3"/>
+</svg>

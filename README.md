@@ -22,28 +22,7 @@ non-goals). Every control below is mapped to real, working evidence in the
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    Dev[Developer commit] --> CI
-
-    subgraph CI["CI pipeline (Phase 1)"]
-        direction TB
-        Lint --> Test --> SAST --> Secrets --> Terraform --> Build --> Scan --> SBOM --> Sign --> Publish
-    end
-
-    Terraform -.->|"plan/apply"| Infra["VPC, S3, DynamoDB\n(LocalStack, Phase 3)"]
-    CI --> Registry[(Container registry)]
-    Registry --> K8s
-
-    subgraph K8s["Kubernetes (Phase 4)"]
-        Kyverno["Kyverno admission policy\n(non-root, signed images,\napproved registry, no :latest,\nresource limits)"]
-    end
-
-    Terraform -.->|"scheduled drift check\n(Phase 5)"| Monitor["terraform plan -detailed-exitcode\n(CI cron)"]
-    Monitor -.->|"linked, not vendored"| Agent["agentic-ai-devops\nLangGraph detect/classify/remediate agent"]
-    CI -.->|"evidence"| Docs[docs/evidence/]
-    Docs -.-> Matrix["NIST 800-53 compliance matrix\n(Phase 6)"]
-```
+![Architecture diagram: commit flows through GitLab CI security gates (SAST, Secrets, CVE Scan, SBOM + Sign) to a registry, then through Kyverno admission control into Kubernetes; Terraform/LocalStack and a drift-detection agent feed continuous monitoring; every stage maps into the NIST 800-53 compliance matrix.](docs/architecture.svg)
 
 ## Quickstart
 
