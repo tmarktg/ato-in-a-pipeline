@@ -43,6 +43,9 @@ make demo       # kind up + Kyverno install + policy tests + deploy the real sig
 make kind-down  # tear the demo cluster down
 
 make drift-check  # terraform plan -detailed-exitcode against LocalStack (exit 2 = drift)
+
+make compliance-gen    # regenerate docs/compliance-matrix.md + OSCAL component-definition.json
+make compliance-check  # regenerate, fail on drift, then validate the OSCAL JSON
 ```
 
 `make demo` requires `kind`, `kubectl`, `kustomize`, `helm`, and the
@@ -55,11 +58,16 @@ below.
 ## CI pipeline (Phase 1)
 
 `.gitlab-ci.yml` and `.github/workflows/pipeline.yml` both run the same
-ten stages: `lint → test → sast → secrets → terraform → build → scan →
-sbom → sign → publish`.
+eleven stages: `lint → test → sast → secrets → compliance → terraform →
+build → scan → sbom → sign → publish`.
 
 - **SAST** — Semgrep (`.semgrep.yml`), fails on ERROR severity.
 - **Secrets** — Gitleaks (`.gitleaks.toml`), fails on any finding.
+- **Compliance** — regenerates `docs/compliance-matrix.md` and the OSCAL
+  `component-definition.json` from `compliance/controls.yaml`, fails on any
+  drift from what's committed, then schema-validates the OSCAL JSON — see
+  [Machine-readable compliance (OSCAL, Phase 7)](#machine-readable-compliance-oscal-phase-7)
+  below.
 - **Scan** — Trivy, fails on CRITICAL (unfixed CVEs with no vendor patch are
   tracked, not blocking — [ADR 0002](docs/adr/0002-trivy-unfixed-cve-policy.md)).
 - **SBOM** — Syft emits SPDX + CycloneDX, retained 30 days.
